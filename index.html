@@ -502,6 +502,13 @@ function showEnd(){Music.mood("calm");$("endBox").innerHTML=endVerdict(G.result,
 
 /* ============ TRYB: WIELE TELEFONÓW (WebRTC / PeerJS) ============ */
 const PREFIX="impeu-2026-";
+const ICE_CONFIG={iceServers:[
+  {urls:"stun:stun.l.google.com:19302"},
+  {urls:"stun:stun1.l.google.com:19302"},
+  {urls:"turn:openrelay.metered.ca:80",username:"openrelayproject",credential:"openrelayproject"},
+  {urls:"turn:openrelay.metered.ca:443",username:"openrelayproject",credential:"openrelayproject"},
+  {urls:"turn:openrelay.metered.ca:443?transport=tcp",username:"openrelayproject",credential:"openrelayproject"}
+]};
 let peer=null,isHost=false,conns={},myPid=null,room=null,myCode=null,lastState=null,netCi=-1,nFlipped=false,seenSent=false,myVote=null,nTick=null;
 
 function peerAvailable(){return typeof window.Peer==="function";}
@@ -534,7 +541,7 @@ $("netCreate").onclick=safe(function(){
   netLeave();isHost=true;myPid="host";myCode=newCode();
   let tries=0;
   const make=()=>{
-    peer=new Peer(PREFIX+myCode,{debug:0});
+    peer=new Peer(PREFIX+myCode,{debug:0,config:ICE_CONFIG});
     peer.on("open",()=>{
       room={phase:"lobby",settings:{imposters:1,showCountry:true,impKnows:true},
         players:[{pid:"host",name:name.slice(0,16),color:COLORS[0],alive:true,imp:false,seen:false,vote:null}],
@@ -665,9 +672,9 @@ $("netJoin").onclick=safe(function(){
   if(code.length!==4){netErr("Kod ma 4 znaki.");return;}
   netErr("");$("connText").textContent="Łączę z pokojem "+code+"…";show("n-conn");
   netLeave();isHost=false;myCode=code;
-  peer=new Peer({debug:0});
+  peer=new Peer({debug:0,config:ICE_CONFIG});
   const fail=m=>{netErr(m);netLeave();show("n-join");};
-  const guard=setTimeout(()=>{if(!myPid||myPid==="host")fail("Nie udało się połączyć. Sprawdź kod i internet.");},15000);
+  const guard=setTimeout(()=>{if(!myPid||myPid==="host")fail("Nie udało się połączyć w 25 sekund. Sprawdź kod, internet na obu telefonach i spróbuj ponownie.");},25000);
   peer.on("open",()=>{
     const conn=peer.connect(PREFIX+code,{reliable:true});
     conns.host=conn;
