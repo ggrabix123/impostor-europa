@@ -1,891 +1,605 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0A0D22">
-<title>Impostor Europa — Europejski Dzień Języków Obcych w Mechaniku</title>
-<style>
-:root{
-  --space:#0A0D22; --panel:#1C2450; --panel2:#171E45; --line:#3A47A0;
-  --crew:#48E3D4; --impostor:#F0453F; --amber:#FFC145; --cream:#F5EEDC; --muted:#9AA3D4;
-  --radius:22px; color-scheme:dark;
-}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html{-webkit-text-size-adjust:100%}
-body{
-  margin:0;min-height:100vh;background:#0A0D22;
-  background-image:
-    radial-gradient(1.6px 1.6px at 12% 18%,#fff 50%,transparent 51%),
-    radial-gradient(1.3px 1.3px at 78% 9%,#fff 50%,transparent 51%),
-    radial-gradient(1.8px 1.8px at 32% 62%,#fff 50%,transparent 51%),
-    radial-gradient(1.2px 1.2px at 88% 47%,#cfe 50%,transparent 51%),
-    radial-gradient(1.5px 1.5px at 58% 88%,#fff 50%,transparent 51%),
-    radial-gradient(1.1px 1.1px at 6% 78%,#fff 50%,transparent 51%),
-    radial-gradient(900px 620px at 50% -12%,#2B2470 0%,transparent 70%),
-    linear-gradient(180deg,#0A0D22 0%,#0C1030 60%,#0A0D22 100%);
-  background-attachment:fixed;color:var(--cream);
-  font-family:"Trebuchet MS",Verdana,system-ui,-apple-system,"Segoe UI",sans-serif;
-  font-weight:700;font-size:17px;line-height:1.45;overflow-x:hidden;
-}
-.wrap{max-width:560px;margin:0 auto;padding:18px 18px calc(56px + env(safe-area-inset-bottom))}
-h1,h2,h3{margin:0}
-button{font-family:inherit;font-weight:900;cursor:pointer;border:0}
-.screen{display:none;animation:in .25s ease both}
-.screen.on{display:block}
-@keyframes in{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-
-#sound{position:fixed;top:calc(10px + env(safe-area-inset-top));right:12px;z-index:50;background:#0F1538;border:2px solid var(--line);color:var(--cream);border-radius:50%;width:44px;height:44px;font-size:19px;line-height:1}
-#crash{display:none;position:fixed;left:10px;right:10px;bottom:10px;z-index:60;background:#2A0F12;border:2px solid var(--impostor);border-radius:16px;padding:12px 14px;font-size:14px}
-#crash button{background:var(--impostor);color:#fff;border-radius:10px;padding:6px 12px;margin-top:8px;font-size:14px}
-
-.logo{text-align:center;margin:4px 0 16px;padding:0 44px}
-.logo h1{font-size:clamp(27px,8vw,40px);line-height:1;font-weight:900;letter-spacing:2px;text-transform:uppercase;text-shadow:0 5px 0 #000a,0 0 26px #48e3d455}
-.logo h1 em{color:var(--impostor);font-style:normal}
-.logo .claim{margin:10px auto 0;display:inline-block;border:2px solid var(--amber);border-radius:999px;padding:5px 14px;color:var(--amber);font-size:13px;letter-spacing:1px;text-transform:uppercase;font-weight:900;line-height:1.3}
-.logo p{margin:8px 0 0;color:var(--muted);font-size:13px;font-weight:700}
-
-.card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:2px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px;box-shadow:inset 0 2px 0 #ffffff14,0 14px 30px #00000055}
-.card h3{font-size:14px;color:var(--amber);margin-bottom:12px;letter-spacing:1px;text-transform:uppercase}
-.row{display:flex;gap:10px}
-input[type=text]{flex:1;min-width:0;width:100%;background:#0C1234;border:2px solid var(--line);color:var(--cream);border-radius:14px;padding:13px 15px;font-family:inherit;font-size:17px;font-weight:700}
-input[type=text]::placeholder{color:#6E78B8}
-input[type=text]:focus{outline:3px solid var(--crew);outline-offset:1px}
-input.code{text-align:center;letter-spacing:8px;font-size:26px;font-weight:900;text-transform:uppercase}
-.btn{background:var(--crew);color:#062723;border-radius:14px;padding:13px 18px;font-size:17px;box-shadow:0 5px 0 #1FA598;transition:transform .08s,box-shadow .08s}
-.btn:active{transform:translateY(4px);box-shadow:0 1px 0 #1FA598}
-.btn:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
-.btn:disabled{opacity:.45;box-shadow:none;cursor:default;transform:none}
-.btn.big{display:block;width:100%;padding:17px;font-size:20px;letter-spacing:1px;text-transform:uppercase}
-.btn.red{background:var(--impostor);color:#fff;box-shadow:0 5px 0 #A21C18}
-.btn.red:active{box-shadow:0 1px 0 #A21C18}
-.btn.amber{background:var(--amber);color:#2A1A00;box-shadow:0 5px 0 #B87F13}
-.btn.amber:active{box-shadow:0 1px 0 #B87F13}
-.btn.ghost{background:transparent;color:var(--muted);border:2px solid var(--line);box-shadow:none}
-.stack{display:flex;flex-direction:column;gap:10px}
-ul.players{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
-ul.players li{display:flex;align-items:center;gap:11px;background:#0F1538;border:2px solid #313D8C;border-radius:14px;padding:8px 10px}
-ul.players li.dead{opacity:.45}
-ul.players li .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.kill{background:none;color:#7C86C8;font-size:22px;line-height:1;padding:2px 8px;border-radius:10px}
-.crew{width:30px;height:34px;flex:none}
-.empty{color:var(--muted);font-size:15px;margin:14px 0 0}
-.stepper{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#0F1538;border:2px solid #313D8C;border-radius:14px;padding:8px 12px}
-.stepper button{width:44px;height:44px;border-radius:12px;background:#2A3470;color:var(--cream);font-size:24px;line-height:1}
-.stepper .val{font-size:24px;color:var(--impostor);font-weight:900}
-.toggle{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:15px;color:var(--muted);cursor:pointer}
-.toggle input{width:20px;height:20px;accent-color:var(--crew)}
-.hintline{color:var(--muted);font-size:14px;margin:10px 2px 0;font-weight:600}
-.err{color:var(--impostor);font-size:15px;margin-top:10px;min-height:20px}
-
-.pass{text-align:center;padding:22px 10px 8px}
-.pass .who{font-size:clamp(25px,7.6vw,36px);color:var(--amber);margin:10px 0 4px;word-break:break-word;font-weight:900;letter-spacing:1px;text-transform:uppercase}
-.pass .sub{color:var(--muted);margin-bottom:20px;font-weight:600}
-.counter{color:#6E78B8;font-size:14px;letter-spacing:1px}
-.flipbox{perspective:1400px;margin:0 auto 18px;max-width:330px}
-.flip{position:relative;width:100%;aspect-ratio:3/4.1;transform-style:preserve-3d;transition:transform .55s cubic-bezier(.4,.1,.2,1)}
-@supports not (aspect-ratio:1/1){.flip{height:430px}}
-.flip.turned{transform:rotateY(180deg)}
-.face{position:absolute;top:0;left:0;right:0;bottom:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;border:3px solid}
-.face.back{background:linear-gradient(160deg,#242E6B,#131A44);border-color:#4B59BE}
-.face.back .q{font-size:62px;color:#4B59BE;font-weight:900;text-shadow:0 0 22px #4b59be88}
-.face.back small{color:var(--muted);margin-top:14px;font-size:15px;font-weight:700}
-.face.front{transform:rotateY(180deg);background:linear-gradient(160deg,#F7F1E0,#E4DAC2);border-color:var(--amber);color:#171A38}
-.face.front.bad{background:linear-gradient(160deg,#3A0F12,#1B0709);border-color:var(--impostor);color:var(--cream)}
-.flag{font-size:44px;line-height:1}
-.country{font-size:18px;margin:6px 0 2px;font-weight:900;letter-spacing:1px;text-transform:uppercase}
-.hello{font-size:15px;color:#5C5233;font-weight:700}
-.face.front.bad .hello{color:var(--muted)}
-.word{font-size:clamp(23px,7.2vw,32px);margin:14px 6px 0;line-height:1.15;word-break:break-word;font-weight:900;letter-spacing:1px;text-transform:uppercase}
-.face.front.bad .word{color:var(--impostor);text-shadow:0 0 18px #f0453f66}
-.tip{margin-top:14px;padding:11px 13px;border-radius:14px;background:#ffffff12;border:1px solid #ffffff22;font-size:16px;line-height:1.3;font-weight:700}
-.tip b{display:block;font-size:11px;letter-spacing:2px;color:var(--amber);margin-bottom:3px}
-
-.bigcountry{text-align:center;padding:8px 0 4px}
-.bigcountry .flag{font-size:56px}
-.bigcountry h2{font-size:clamp(20px,6.4vw,27px);margin-top:6px;font-weight:900;letter-spacing:1px;text-transform:uppercase}
-.bigcountry .hello{color:var(--muted);margin-top:6px;font-size:15px}
-.clock{font-size:44px;text-align:center;color:var(--crew);margin:6px 0 12px;font-weight:900;letter-spacing:2px}
-.votegrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.votegrid button{background:#0F1538;border:2px solid #313D8C;color:var(--cream);border-radius:16px;padding:14px 8px;font-size:16px;display:flex;flex-direction:column;align-items:center;gap:6px}
-.votegrid button.sel{border-color:var(--impostor);background:#2A1030}
-.verdict{text-align:center;padding:12px 4px}
-.verdict h2{font-size:23px;margin-bottom:8px;font-weight:900;letter-spacing:1px;text-transform:uppercase}
-.flyer{font-size:56px;animation:fly 1.6s ease-in-out both}
-@keyframes fly{0%{transform:translateX(0) rotate(0)}100%{transform:translateX(120px) rotate(300deg);opacity:.15}}
-.tag{margin-left:auto;font-size:12px;font-weight:900;padding:3px 10px;border-radius:20px;letter-spacing:1px}
-.tag.i{background:var(--impostor);color:#fff}
-.tag.c{background:#1FA598;color:#04221f}
-.tag.w{background:#2A3470;color:var(--muted)}
-.codebox{text-align:center;background:#0C1234;border:2px dashed var(--amber);border-radius:18px;padding:14px;margin-bottom:14px}
-.codebox .big{font-size:44px;letter-spacing:12px;color:var(--amber);font-weight:900}
-.codebox small{display:block;color:var(--muted);font-size:13px;font-weight:700}
-.foot{text-align:center;color:#59629E;font-size:13px;margin-top:22px;font-weight:600}
-.waitbig{text-align:center;padding:24px 6px;color:var(--muted)}
-.waitbig .n{font-size:40px;color:var(--crew);font-weight:900}
-.spin{display:inline-block;width:26px;height:26px;border:3px solid #3A47A0;border-top-color:var(--crew);border-radius:50%;animation:sp 1s linear infinite}
-@keyframes sp{to{transform:rotate(360deg)}}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Szpieg / Impostor</title>
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <style>
+        :root { --bg: #1a1a2e; --panel: #16213e; --acc: #e94560; --text: #fff; --ok: #4caf50; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: var(--bg); color: var(--text); overflow-x: hidden; }
+        .screen { display: none; padding: 20px; max-width: 600px; margin: 0 auto; min-height: 100vh; flex-direction: column; }
+        .screen.active { display: flex; }
+        h1, h2, h3 { text-align: center; margin-bottom: 20px; }
+        button { background: var(--acc); color: white; border: none; padding: 15px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin: 10px 0; width: 100%; transition: 0.2s; }
+        button:hover { filter: brightness(1.1); }
+        button:disabled { background: #555; cursor: not-allowed; }
+        .btn-alt { background: var(--panel); border: 2px solid var(--acc); }
+        input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 8px; border: none; background: #0f172a; color: white; font-size: 16px; }
+        .card { background: var(--panel); padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: center; }
+        ul.list { list-style: none; }
+        ul.list li { display: flex; justify-content: space-between; align-items: center; background: #0f172a; padding: 10px 15px; margin-bottom: 10px; border-radius: 8px; }
+        .color-dot { width: 20px; height: 20px; border-radius: 50%; display: inline-block; margin-right: 10px; vertical-align: middle; }
+        .imp-red { color: #ff4757; font-weight: bold; }
+        .crew-blue { color: #1e90ff; font-weight: bold; }
+        .grid-btn { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .log { background: #000; color: #0f0; padding: 10px; font-family: monospace; font-size: 12px; height: 150px; overflow-y: auto; border-radius: 8px; text-align: left; margin-top: 10px;}
+        #timer { font-size: 48px; text-align: center; font-weight: bold; margin: 20px 0; color: var(--acc); }
+    </style>
 </head>
 <body>
-<button id="sound" aria-label="Muzyka">🔈</button>
-<div id="crash"><span id="crashText"></span><br><button id="crashBtn">Wróć do menu</button></div>
 
-<div class="wrap">
-<div class="logo">
-  <h1>Impostor <em>Europa</em></h1>
-  <div class="claim">Europejski Dzień Języków Obcych w Mechaniku</div>
-  <p>44 kraje · 176 haseł</p>
-</div>
-
-<!-- HOME -->
-<section class="screen on" id="s-home">
-  <div class="card">
-    <h3>Wybierz tryb</h3>
-    <div class="stack">
-      <button class="btn big" id="modeLocal">Jeden telefon</button>
-      <button class="btn big amber" id="modeNet">Gra na wielu telefonach</button>
+    <!-- MENU GŁÓWNE -->
+    <div id="scr-home" class="screen active">
+        <h1>🕵️‍♂️ Tajniacy / Impostor</h1>
+        <p style="text-align:center; margin-bottom:30px;">Wykryj szpiega lub ukryj się w tłumie!</p>
+        <button onclick="nav('scr-local-setup')">📱 Tryb Lokalny (1 Telefon)</button>
+        <button onclick="nav('scr-net-join')">🌐 Tryb Sieciowy (Wiele urządzeń)</button>
     </div>
-    <p class="hintline" id="netNote">Tryb na wielu telefonach wymaga połączenia HTTPS/z sieci. Jedna osoba zakłada pokój, reszta wpisuje kod.</p>
-  </div>
-</section>
 
-<!-- LOCAL SETUP -->
-<section class="screen" id="s-setup">
-  <div class="card">
-    <h3>Gracze</h3>
-    <div class="row">
-      <input type="text" id="nameInput" placeholder="Wpisz imię" maxlength="16" autocomplete="off">
-      <button class="btn" id="addBtn">Dodaj</button>
+    <!-- LOKALNY: USTAWIENIA -->
+    <div id="scr-local-setup" class="screen">
+        <h2>Ustawienia Lokalne</h2>
+        <div class="card">
+            <input type="text" id="locName" placeholder="Imię gracza" onkeypress="if(event.key==='Enter') addLocalPlayer()">
+            <button onclick="addLocalPlayer()">Dodaj Gracza</button>
+        </div>
+        <ul id="locPlayerList" class="list"></ul>
+        <div class="card grid-btn" style="align-items:center;">
+            <span>Liczba Impostorów: <strong id="locImpCount">1</strong></span>
+            <div>
+                <button onclick="changeImp('loc', -1)" style="width:40px; margin:0;">-</button>
+                <button onclick="changeImp('loc', 1)" style="width:40px; margin:0;">+</button>
+            </div>
+        </div>
+        <button onclick="startLocalGame()">Rozpocznij Grę</button>
+        <button class="btn-alt" onclick="nav('scr-home')">Wróć</button>
     </div>
-    <ul class="players" id="playerList"></ul>
-    <p class="empty" id="emptyMsg">Dodaj co najmniej 3 osoby.</p>
-  </div>
-  <div class="card">
-    <h3>Impostorzy</h3>
-    <div class="stepper">
-      <button id="impMinus" aria-label="Mniej">−</button><span class="val" id="impVal">1</span><button id="impPlus" aria-label="Więcej">+</button>
+
+    <!-- LOKALNY: PRZEKAZYWANIE KARTY -->
+    <div id="scr-local-pass" class="screen">
+        <h2 id="passTitle">Gracz 1</h2>
+        <div class="card" id="passCard" style="display:none; padding:40px 20px;">
+            <h3 id="passRole">Rola</h3>
+            <p id="passLocation" style="font-size:24px; margin-top:10px;"></p>
+        </div>
+        <button id="passBtn" onclick="revealLocalCard()">Pokaż moją kartę</button>
     </div>
-    <label class="toggle"><input type="checkbox" id="showCountry" checked> Kraj widoczny dla wszystkich</label>
-    <label class="toggle"><input type="checkbox" id="impKnowsCountry" checked> Impostor też widzi kraj</label>
-  </div>
-  <div class="stack">
-    <button class="btn big" id="startBtn">Rozdaj karty</button>
-    <button class="btn ghost" id="homeFromSetup">Wróć</button>
-  </div>
-  <p class="err" id="setupErr"></p>
-</section>
 
-<!-- LOCAL REVEAL -->
-<section class="screen" id="s-reveal">
-  <div class="pass"><p class="counter" id="revCounter"></p><p class="who" id="revName">—</p><p class="sub">Weź telefon i nikomu nie pokazuj ekranu.</p></div>
-  <div class="flipbox"><div class="flip" id="flip">
-    <div class="face back"><div class="q">?</div><small>Dotknij, żeby odkryć</small></div>
-    <div class="face front" id="cardFront"></div>
-  </div></div>
-  <button class="btn big" id="revealBtn">Odkryj kartę</button>
-</section>
+    <!-- WSPÓLNY: GRA / DYSKUSJA (LOKALNIE) -->
+    <div id="scr-local-game" class="screen">
+        <h2>Dyskusja</h2>
+        <div id="timer">02:00</div>
+        <div class="grid-btn">
+            <button onclick="toggleTimer()">Start / Pauza</button>
+            <button class="btn-alt" onclick="resetTimer()">Reset 2:00</button>
+        </div>
+        <h3 style="margin-top:20px;">Żywi Gracze:</h3>
+        <ul id="locAliveList" class="list"></ul>
+        <button onclick="startLocalVote()" style="background:#ff9800; margin-top:30px;">Zarządzaj Głosowanie</button>
+    </div>
 
-<!-- LOCAL DISCUSSION -->
-<section class="screen" id="s-game">
-  <div class="card"><div class="bigcountry" id="gameCountry"></div></div>
-  <div class="card">
-    <h3>Dyskusja</h3>
-    <div class="clock" id="clock">02:00</div>
-    <div class="stack"><button class="btn" id="timerBtn">Start</button><button class="btn ghost" id="timerReset">Zresetuj zegar</button></div>
-    <ul class="players" id="aliveList"></ul>
-  </div>
-  <div class="stack">
-    <button class="btn big red" id="toVote">Głosowanie</button>
-    <button class="btn ghost" id="endNow">Zakończ i pokaż wszystkich</button>
-  </div>
-</section>
+    <!-- WSPÓLNY: GŁOSOWANIE LOKALNE -->
+    <div id="scr-local-vote" class="screen">
+        <h2>Kogo wyrzucić?</h2>
+        <div id="locVoteGrid" class="grid-btn"></div>
+        <button class="btn-alt" onclick="nav('scr-local-game')" style="margin-top:20px;">Anuluj</button>
+    </div>
 
-<!-- LOCAL VOTE -->
-<section class="screen" id="s-vote">
-  <div class="card"><h3>Kogo wyrzucamy?</h3><div class="votegrid" id="voteGrid"></div>
-    <p class="hintline">Wskażcie osobę, na którą padło najwięcej głosów.</p></div>
-  <button class="btn big ghost" id="backToGame">Wróć do dyskusji</button>
-</section>
+    <!-- SIECIOWY: DOŁĄCZANIE -->
+    <div id="scr-net-join" class="screen">
+        <h2>Tryb Sieciowy</h2>
+        <div class="card">
+            <input type="text" id="netName" placeholder="Twoje imię">
+            <hr style="border-color:#333; margin: 15px 0;">
+            <button onclick="createNetGame()" style="background:var(--ok);">Stwórz nowy pokój</button>
+            <hr style="border-color:#333; margin: 15px 0;">
+            <input type="text" id="netCode" placeholder="Kod pokoju (np. AB12)" style="text-transform:uppercase;" maxlength="4">
+            <button onclick="joinNetGame()">Dołącz do pokoju</button>
+        </div>
+        <div id="netStatus" class="log" style="display:none;"></div>
+        <button class="btn-alt" onclick="nav('scr-home')">Wróć</button>
+    </div>
 
-<!-- LOCAL EJECT -->
-<section class="screen" id="s-eject">
-  <div class="card"><div class="verdict" id="ejectBox"></div></div>
-  <button class="btn big" id="ejectNext">Dalej</button>
-</section>
+    <!-- SIECIOWY: LOBBY -->
+    <div id="scr-net-lobby" class="screen">
+        <h2>Pokój: <span id="lobbyCodeText" style="color:var(--acc);"></span></h2>
+        <div class="card">
+            <h3>Gracze:</h3>
+            <ul id="netPlayerList" class="list"></ul>
+        </div>
+        <div id="hostControls" style="display:none;">
+            <div class="card grid-btn" style="align-items:center;">
+                <span>Impostorzy: <strong id="netImpCount">1</strong></span>
+                <div>
+                    <button onclick="changeImp('net', -1)" style="width:40px; margin:0;">-</button>
+                    <button onclick="changeImp('net', 1)" style="width:40px; margin:0;">+</button>
+                </div>
+            </div>
+            <button onclick="startNetGame()">Rozpocznij Grę</button>
+        </div>
+        <p id="waitText" style="text-align:center; color:#aaa;"></p>
+        <button class="btn-alt" onclick="disconnectNet()">Wyjdź</button>
+    </div>
 
-<!-- LOCAL END -->
-<section class="screen" id="s-end">
-  <div class="card"><div class="verdict" id="endBox"></div><ul class="players" id="endList"></ul></div>
-  <div class="stack"><button class="btn big amber" id="newRound">Nowa runda</button><button class="btn ghost" id="backToSetup">Zmień graczy</button></div>
-</section>
+    <!-- SIECIOWY: TWOJA KARTA -->
+    <div id="scr-net-card" class="screen">
+        <h2>Twoja Tożsamość</h2>
+        <div class="card" style="padding:40px 20px;">
+            <h3 id="netRole">Rola</h3>
+            <p id="netLocation" style="font-size:24px; margin-top:10px;"></p>
+        </div>
+        <button onclick="nav('scr-net-game')">Przejdź do gry</button>
+    </div>
 
-<!-- NET JOIN -->
-<section class="screen" id="n-join">
-  <div class="card">
-    <h3>Twoje imię</h3>
-    <input type="text" id="netName" placeholder="Imię" maxlength="16" autocomplete="off">
-    <div class="stack" style="margin-top:14px"><button class="btn big" id="netCreate">Załóż pokój</button></div>
-  </div>
-  <div class="card">
-    <h3>Albo dołącz kodem</h3>
-    <input type="text" id="netCode" class="code" placeholder="KOD" maxlength="4" autocomplete="off" inputmode="latin">
-    <div class="stack" style="margin-top:14px"><button class="btn big amber" id="netJoin">Dołącz</button></div>
-  </div>
-  <button class="btn ghost" id="homeFromNet" style="width:100%">Wróć</button>
-  <p class="err" id="netErr"></p>
-</section>
+    <!-- SIECIOWY: GRA -->
+    <div id="scr-net-game" class="screen">
+        <h2>Gra Trwa</h2>
+        <button class="btn-alt" onclick="nav('scr-net-card')" style="margin-bottom:20px;">Podejrzyj swoją kartę</button>
+        <h3>Żywi Gracze:</h3>
+        <ul id="netAliveList" class="list"></ul>
+        <button onclick="startNetVote()" style="background:#ff9800; margin-top:30px;">Zwołaj Głosowanie</button>
+    </div>
 
-<!-- NET CONNECTING -->
-<section class="screen" id="n-conn">
-  <div class="card"><div class="waitbig"><div class="spin"></div><p id="connText">Łączę…</p></div>
-    <div id="connLog" style="text-align:left;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--muted);background:#0C1234;border-radius:12px;padding:10px;margin-top:6px;max-height:170px;overflow-y:auto;white-space:pre-wrap;line-height:1.5"></div>
-  </div>
-  <button class="btn ghost" id="connCancel" style="width:100%">Anuluj</button>
-</section>
+    <!-- SIECIOWY: GŁOSOWANIE -->
+    <div id="scr-net-vote" class="screen">
+        <h2>Głosowanie</h2>
+        <p style="text-align:center; margin-bottom:15px;" id="netVoteStatus">Wybierz, kogo wyrzucić:</p>
+        <div id="netVoteGrid" class="grid-btn"></div>
+    </div>
 
-<!-- NET LOBBY -->
-<section class="screen" id="n-lobby">
-  <div class="codebox"><div class="big" id="lobbyCode">----</div><small>Podaj ten kod reszcie klasy</small></div>
-  <div class="card"><h3>W pokoju</h3><ul class="players" id="lobbyList"></ul></div>
-  <div class="card" id="hostBox">
-    <h3>Ustawienia prowadzącego</h3>
-    <div class="stepper"><button id="nImpMinus">−</button><span class="val" id="nImpVal">1</span><button id="nImpPlus">+</button></div>
-    <label class="toggle"><input type="checkbox" id="nShowCountry" checked> Kraj widoczny dla wszystkich</label>
-    <label class="toggle"><input type="checkbox" id="nImpKnows" checked> Impostor też widzi kraj</label>
-    <button class="btn big" id="netStart" style="margin-top:14px">Rozdaj karty</button>
-  </div>
-  <p class="hintline" id="waitHost"></p>
-  <button class="btn ghost" id="netLeave" style="width:100%;margin-top:10px">Wyjdź z pokoju</button>
-</section>
+    <!-- PODSUMOWANIE (Lokalne i Sieciowe) -->
+    <div id="scr-end" class="screen">
+        <h2 id="endResult" style="font-size:32px;">Zwycięstwo!</h2>
+        <div class="card">
+            <p style="margin-bottom:15px; color:#aaa;">Prawidłowa lokacja:</p>
+            <h3 id="endLocation" style="color:white; margin-bottom:20px;"></h3>
+            <ul id="endPlayerRoles" class="list"></ul>
+        </div>
+        <button onclick="returnToLobby()" id="endReturnBtn">Nowa Runda</button>
+    </div>
 
-<!-- NET CARD -->
-<section class="screen" id="n-card">
-  <div class="pass"><p class="who" id="nMyName">—</p><p class="sub">Tylko Ty widzisz tę kartę.</p></div>
-  <div class="flipbox"><div class="flip" id="nFlip">
-    <div class="face back"><div class="q">?</div><small>Dotknij, żeby odkryć</small></div>
-    <div class="face front" id="nCardFront"></div>
-  </div></div>
-  <button class="btn big" id="nRevealBtn">Odkryj kartę</button>
-</section>
-
-<!-- NET WAIT -->
-<section class="screen" id="n-wait">
-  <div class="card"><div class="waitbig"><div class="n" id="waitCount">0/0</div><p id="waitText"></p></div><ul class="players" id="waitList"></ul></div>
-</section>
-
-<!-- NET DISCUSS -->
-<section class="screen" id="n-discuss">
-  <div class="card"><div class="bigcountry" id="nCountry"></div></div>
-  <div class="card"><h3>Dyskusja</h3><div class="clock" id="nClock">02:00</div><ul class="players" id="nAliveList"></ul></div>
-  <div class="stack" id="nDiscussHost">
-    <button class="btn big red" id="nToVote">Rozpocznij głosowanie</button>
-    <button class="btn ghost" id="nEndNow">Zakończ i pokaż wszystkich</button>
-  </div>
-  <p class="hintline" id="nDiscussWait"></p>
-</section>
-
-<!-- NET VOTE -->
-<section class="screen" id="n-vote">
-  <div class="card"><h3>Na kogo głosujesz?</h3><div class="votegrid" id="nVoteGrid"></div><p class="hintline" id="nVoteStatus"></p></div>
-</section>
-
-<!-- NET EJECT -->
-<section class="screen" id="n-eject">
-  <div class="card"><div class="verdict" id="nEjectBox"></div></div>
-  <button class="btn big" id="nEjectNext">Dalej</button>
-  <p class="hintline" id="nEjectWait"></p>
-</section>
-
-<!-- NET END -->
-<section class="screen" id="n-end">
-  <div class="card"><div class="verdict" id="nEndBox"></div><ul class="players" id="nEndList"></ul></div>
-  <div class="stack"><button class="btn big amber" id="nNewRound">Nowa runda</button><button class="btn ghost" id="nLeave2">Wyjdź z pokoju</button></div>
-  <p class="hintline" id="nEndWait"></p>
-</section>
-
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script>
-/* ============ DANE: 44 kraje x 4 hasła ============ */
-const DATA=[
-{c:"Polska",f:"🇵🇱",lang:"polsku",hi:"Dzień dobry",w:[{w:"Pierogi",h:"Lepi się to całą rodziną przy stole"},{w:"Wisła",h:"Płynie przez środek kraju"},{w:"Bocian",h:"Wraca do nas na wiosnę"},{w:"Chopin",h:"Kojarzy się z fortepianem"}]},
-{c:"Niemcy",f:"🇩🇪",lang:"niemiecku",hi:"Guten Tag",w:[{w:"Kiełbaska",h:"Kupisz na jarmarku, na gorąco"},{w:"Mur berliński",h:"Kiedyś dzielił, dziś zostały fragmenty"},{w:"Oktoberfest",h:"Wielkie święto z kuflami"},{w:"Autostrada",h:"Można tam jechać naprawdę szybko"}]},
-{c:"Francja",f:"🇫🇷",lang:"francusku",hi:"Bonjour",w:[{w:"Croissant",h:"Najlepiej smakuje rano"},{w:"Wieża Eiffla",h:"Metalowa i widać ją z daleka"},{w:"Bagietka",h:"Nosi się to pod pachą"},{w:"Ser pleśniowy",h:"Zapach mocniejszy niż smak"}]},
-{c:"Włochy",f:"🇮🇹",lang:"włosku",hi:"Buongiorno",w:[{w:"Pizza",h:"Dzieli się na kawałki"},{w:"Gondola",h:"Wąska łódka, a ktoś przy tym śpiewa"},{w:"Koloseum",h:"Bardzo stara arena"},{w:"Espresso",h:"Małe, ale stawia na nogi"}]},
-{c:"Hiszpania",f:"🇪🇸",lang:"hiszpańsku",hi:"Hola",w:[{w:"Paella",h:"Ogromna patelnia na środku stołu"},{w:"Flamenco",h:"Dużo tupania i falbanek"},{w:"Corrida",h:"Czerwona płachta"},{w:"Sjesta",h:"Przerwa w samym środku dnia"}]},
-{c:"Portugalia",f:"🇵🇹",lang:"portugalsku",hi:"Olá",w:[{w:"Pastel de nata",h:"Słodkie, w kruchym cieście"},{w:"Fado",h:"Smutna muzyka na żywo"},{w:"Ocean",h:"Wielka woda na zachodzie"},{w:"Korek",h:"Wyjmuje się to z butelki"}]},
-{c:"Wielka Brytania",f:"🇬🇧",lang:"angielsku",hi:"Hello",w:[{w:"Big Ben",h:"Głośno przypomina o godzinie"},{w:"Herbata o piątej",h:"Rytuał z filiżanką"},{w:"Czerwony autobus",h:"Piętrowy, nie do przeoczenia"},{w:"Deszcz",h:"Parasol to tutaj podstawa"}]},
-{c:"Irlandia",f:"🇮🇪",lang:"irlandzku",hi:"Dia duit",w:[{w:"Koniczyna",h:"Ma przynosić szczęście"},{w:"Leprechaun",h:"Mały i pilnuje złota"},{w:"Ciemne piwo",h:"Czarne, z białą pianą"},{w:"Zielone wzgórza",h:"Kolor, który widać wszędzie"}]},
-{c:"Holandia",f:"🇳🇱",lang:"niderlandzku",hi:"Goedendag",w:[{w:"Wiatrak",h:"Kręci się na wietrze"},{w:"Tulipan",h:"Kwitnie całymi polami"},{w:"Rower",h:"Wszyscy się tym poruszają"},{w:"Ser gouda",h:"Wielkie żółte koło na targu"}]},
-{c:"Belgia",f:"🇧🇪",lang:"niderlandzku i francusku",hi:"Hallo / Bonjour",w:[{w:"Czekolada",h:"Rozpuszcza się w ustach"},{w:"Frytki",h:"Podaje się w papierowej tutce"},{w:"Gofr",h:"W kratkę i na słodko"},{w:"Manneken Pis",h:"Mała figurka, duży żart"}]},
-{c:"Luksemburg",f:"🇱🇺",lang:"luksembursku",hi:"Moien",w:[{w:"Bank",h:"Tutaj trzyma się pieniądze"},{w:"Zamek",h:"Stare mury na wzgórzu"},{w:"Trzy języki urzędowe",h:"Jeden tu nie wystarczy"},{w:"Darmowe autobusy",h:"Jedziesz i nie płacisz"}]},
-{c:"Szwajcaria",f:"🇨🇭",lang:"niemiecku, francusku i włosku",hi:"Grüezi",w:[{w:"Zegarek",h:"Precyzja na nadgarstku"},{w:"Ser z dziurami",h:"Im więcej dziur, tym mniej jedzenia"},{w:"Alpy",h:"Wysoko i biało"},{w:"Scyzoryk",h:"Czerwony i ma wszystko naraz"}]},
-{c:"Austria",f:"🇦🇹",lang:"niemiecku",hi:"Servus",w:[{w:"Walc",h:"Trzy kroki i kręcimy się w kółko"},{w:"Sznycel",h:"Panierowany, ledwo mieści się na talerzu"},{w:"Mozart",h:"Komponował już jako dziecko"},{w:"Narty",h:"Zjazd w dół stoku"}]},
-{c:"Czechy",f:"🇨🇿",lang:"czesku",hi:"Dobrý den",w:[{w:"Piwo",h:"Podobno najlepsze i najtańsze"},{w:"Most Karola",h:"Tłum ludzi i rzeźby po bokach"},{w:"Knedliki",h:"Miękkie, idealne do sosu"},{w:"Krecik",h:"Bajkowy bohater z dzieciństwa"}]},
-{c:"Słowacja",f:"🇸🇰",lang:"słowacku",hi:"Dobrý deň",w:[{w:"Tatry",h:"Dzielimy je z sąsiadem"},{w:"Bryndza",h:"Owczy dodatek do klusek"},{w:"Jaskinia",h:"Ciemno i zimno pod ziemią"},{w:"Zamek Spiski",h:"Ogromne ruiny na wzgórzu"}]},
-{c:"Węgry",f:"🇭🇺",lang:"węgiersku",hi:"Jó napot",w:[{w:"Gulasz",h:"Zupa, po której robi się gorąco"},{w:"Papryka",h:"Czerwona i piecze"},{w:"Balaton",h:"Wielkie jezioro zamiast morza"},{w:"Baseny termalne",h:"Ciepła woda nawet zimą"}]},
-{c:"Słowenia",f:"🇸🇮",lang:"słoweńsku",hi:"Dober dan",w:[{w:"Jezioro Bled",h:"Wysepka z kościółkiem na środku"},{w:"Jaskinia Postojna",h:"Wjeżdża się tam kolejką"},{w:"Biały koń",h:"Hodowla znana od wieków"},{w:"Kremówka",h:"Warstwy kremu i ciasta"}]},
-{c:"Chorwacja",f:"🇭🇷",lang:"chorwacku",hi:"Dobar dan",w:[{w:"Adriatyk",h:"Bardzo czysta i błękitna woda"},{w:"Dubrownik",h:"Mury i czerwone dachy"},{w:"Krawat",h:"Nosi się to pod szyją"},{w:"Wyspy",h:"Jest ich ponad tysiąc"}]},
-{c:"Bośnia i Hercegowina",f:"🇧🇦",lang:"bośniacku",hi:"Dobar dan",w:[{w:"Most w Mostarze",h:"Skaczą z niego do rzeki"},{w:"Ćevapi",h:"Mięsne wałeczki w pieczywie"},{w:"Kawa w tygielku",h:"Parzy się ją bardzo powoli"},{w:"Minaret",h:"Wysoka wieża przy świątyni"}]},
-{c:"Serbia",f:"🇷🇸",lang:"serbsku",hi:"Dobar dan",w:[{w:"Rakija",h:"Mocne i domowej roboty"},{w:"Belgrad",h:"Miasto nad dwiema rzekami"},{w:"Taniec kolo",h:"Wszyscy trzymają się za ręce"},{w:"Nikola Tesla",h:"Bez niego byłoby ciemno"}]},
-{c:"Czarnogóra",f:"🇲🇪",lang:"czarnogórsku",hi:"Dobar dan",w:[{w:"Zatoka Kotorska",h:"Woda wcina się między góry"},{w:"Klasztor w skale",h:"Wykuty prosto w kamieniu"},{w:"Durmitor",h:"Park narodowy wysoko w górach"},{w:"Kamieniste plaże",h:"Bez klapek ani rusz"}]},
-{c:"Albania",f:"🇦🇱",lang:"albańsku",hi:"Përshëndetje",w:[{w:"Bunkry",h:"Betonowe kopuły stoją w polach"},{w:"Orzeł dwugłowy",h:"Widać go na fladze"},{w:"Riwiera",h:"Plaże, o których mało kto wie"},{w:"Bałkany",h:"Region, w którym leży ten kraj"}]},
-{c:"Macedonia Północna",f:"🇲🇰",lang:"macedońsku",hi:"Добар ден",w:[{w:"Jezioro Ochrydzkie",h:"Jedno z najstarszych na świecie"},{w:"Ajvar",h:"Pasta z papryki na zimę"},{w:"Skopje",h:"Miasto pełne pomników"},{w:"Cyrylica",h:"Alfabet, którego tu używają"}]},
-{c:"Grecja",f:"🇬🇷",lang:"grecku",hi:"Γεια σας",w:[{w:"Olimp",h:"Mieszkali tam bogowie"},{w:"Gyros",h:"Mięso z pionowego rożna"},{w:"Santorini",h:"Białe domki i niebieskie kopuły"},{w:"Igrzyska",h:"Tutaj się wszystko zaczęło"}]},
-{c:"Bułgaria",f:"🇧🇬",lang:"bułgarsku",hi:"Добър ден",w:[{w:"Róża",h:"Robi się z niej olejek"},{w:"Jogurt",h:"Kwaśny i podobno zdrowy"},{w:"Morze Czarne",h:"Tam jeżdżą na wakacje"},{w:"Kiwanie głową",h:"Tutaj znaczy odwrotnie"}]},
-{c:"Rumunia",f:"🇷🇴",lang:"rumuńsku",hi:"Bună ziua",w:[{w:"Drakula",h:"Podobno boi się czosnku"},{w:"Transylwania",h:"Kraina zamków i lasów"},{w:"Karpaty",h:"Ciągną się przez pół kraju"},{w:"Niedźwiedź",h:"Lepiej go nie spotkać w lesie"}]},
-{c:"Mołdawia",f:"🇲🇩",lang:"rumuńsku",hi:"Bună ziua",w:[{w:"Wino",h:"Kilometry piwnic pełnych beczek"},{w:"Winnice",h:"Rzędy krzewów po horyzont"},{w:"Placinta",h:"Placek z nadzieniem"},{w:"Brak morza",h:"Stąd nigdzie nie ma plaży"}]},
-{c:"Ukraina",f:"🇺🇦",lang:"ukraińsku",hi:"Добрий день",w:[{w:"Słonecznik",h:"Żółte pola aż po horyzont"},{w:"Barszcz",h:"Czerwona zupa"},{w:"Wyszywanka",h:"Koszula z haftem"},{w:"Złote kopuły",h:"Błyszczą nad miastem"}]},
-{c:"Białoruś",f:"🇧🇾",lang:"białorusku",hi:"Добры дзень",w:[{w:"Żubr",h:"Największe zwierzę w puszczy"},{w:"Puszcza",h:"Bardzo stary las"},{w:"Placki ziemniaczane",h:"Smaży się je na patelni"},{w:"Len",h:"Niebieskie kwiaty i materiał z nich"}]},
-{c:"Litwa",f:"🇱🇹",lang:"litewsku",hi:"Laba diena",w:[{w:"Bursztyn",h:"Zastygł miliony lat temu"},{w:"Wilno",h:"Stolica pełna kościołów"},{w:"Cepeliny",h:"Wielkie kluchy z nadzieniem"},{w:"Góra Krzyży",h:"Tysiące ich na jednym wzgórzu"}]},
-{c:"Łotwa",f:"🇱🇻",lang:"łotewsku",hi:"Labdien",w:[{w:"Ryga",h:"Stolica nad rzeką Dźwiną"},{w:"Czarny balsam",h:"Gorzki, ziołowy napój"},{w:"Lasy",h:"Pokrywają pół kraju"},{w:"Święto pieśni",h:"Tysiące ludzi śpiewa razem"}]},
-{c:"Estonia",f:"🇪🇪",lang:"estońsku",hi:"Tere",w:[{w:"Tallinn",h:"Starówka jak z bajki"},{w:"Internet",h:"Tu załatwisz online prawie wszystko"},{w:"Sauna",h:"Gorąco i dużo pary"},{w:"Bałtyk",h:"Morze tuż obok"}]},
-{c:"Finlandia",f:"🇫🇮",lang:"fińsku",hi:"Hyvää päivää",w:[{w:"Zorza polarna",h:"Zielone światło na niebie"},{w:"Renifer",h:"Ciągnie sanie"},{w:"Tysiące jezior",h:"Woda dosłownie wszędzie"},{w:"Święty Mikołaj",h:"Mieszka gdzieś na północy"}]},
-{c:"Szwecja",f:"🇸🇪",lang:"szwedzku",hi:"Hej",w:[{w:"Meble do składania",h:"Instrukcja bez jednego słowa"},{w:"Klopsiki",h:"Małe kulki z sosem"},{w:"Wikingowie",h:"Pływali długimi łodziami"},{w:"ABBA",h:"Zespół, który zna każdy rodzic"}]},
-{c:"Norwegia",f:"🇳🇴",lang:"norwesku",hi:"God dag",w:[{w:"Fiord",h:"Woda wcina się między skały"},{w:"Łosoś",h:"Różowa ryba"},{w:"Trolle",h:"Mieszkają w skałach"},{w:"Słońce o północy",h:"Latem w ogóle nie robi się ciemno"}]},
-{c:"Dania",f:"🇩🇰",lang:"duńsku",hi:"Goddag",w:[{w:"Klocki",h:"Boli, jak się na to nadepnie"},{w:"Mała Syrenka",h:"Siedzi na kamieniu przy wodzie"},{w:"Hygge",h:"Koc, świeca i spokój"},{w:"Andersen",h:"Pisał baśnie"}]},
-{c:"Islandia",f:"🇮🇸",lang:"islandzku",hi:"Góðan dag",w:[{w:"Gejzer",h:"Wystrzeliwuje wodę w górę"},{w:"Wulkan",h:"Popiół i lawa"},{w:"Lodowiec",h:"Ogromna bryła lodu"},{w:"Gorące źródła",h:"Kąpiel pod gołym niebem"}]},
-{c:"Malta",f:"🇲🇹",lang:"maltańsku",hi:"Bonġu",w:[{w:"Wyspa",h:"Dookoła tylko woda"},{w:"Rycerze",h:"Dawny zakon z krzyżem"},{w:"Jasny kamień",h:"Wszystko jest z niego zbudowane"},{w:"Kolorowe łodzie",h:"Mają namalowane oko na dziobie"}]},
-{c:"Cypr",f:"🇨🇾",lang:"grecku i turecku",hi:"Γεια / Merhaba",w:[{w:"Afrodyta",h:"Wyszła z morskiej piany"},{w:"Halloumi",h:"Ser, który się grilluje"},{w:"Słońce",h:"Świeci tu prawie cały rok"},{w:"Linia podziału",h:"Przecina wyspę na pół"}]},
-{c:"Monako",f:"🇲🇨",lang:"francusku",hi:"Bonjour",w:[{w:"Formuła 1",h:"Wyścig ulicami miasta"},{w:"Kasyno",h:"Duże pieniądze na stole"},{w:"Jachty",h:"Stoją w porcie jeden przy drugim"},{w:"Książę",h:"Rządzi zamiast prezydenta"}]},
-{c:"Watykan",f:"🇻🇦",lang:"włosku i po łacinie",hi:"Salve",w:[{w:"Papież",h:"Wychodzi do ludzi w oknie"},{w:"Kaplica Sykstyńska",h:"Malowidła na suficie"},{w:"Ogromna kopuła",h:"Widać ją z każdej strony"},{w:"Gwardia Szwajcarska",h:"Bardzo kolorowe mundury"}]},
-{c:"Andora",f:"🇦🇩",lang:"katalońsku",hi:"Bon dia",w:[{w:"Pireneje",h:"Góry między dwoma sąsiadami"},{w:"Zakupy bez podatku",h:"Taniej niż gdziekolwiek obok"},{w:"Dwaj współksiążęta",h:"Rządzi dwóch naraz"},{w:"Brak lotniska",h:"Dojedziesz tylko drogą"}]},
-{c:"San Marino",f:"🇸🇲",lang:"włosku",hi:"Buongiorno",w:[{w:"Najstarsza republika",h:"Istnieje od bardzo dawna"},{w:"Trzy wieże",h:"Stoją na szczycie góry"},{w:"Znaczki pocztowe",h:"Kolekcjonerzy je uwielbiają"},{w:"Kraj w kraju",h:"Dookoła tylko jeden sąsiad"}]},
-{c:"Liechtenstein",f:"🇱🇮",lang:"niemiecku",hi:"Grüezi",w:[{w:"Książę",h:"Mieszka w zamku nad miastem"},{w:"Zamek Vaduz",h:"Rezydencja na zboczu"},{w:"Protezy dentystyczne",h:"Eksportują je na cały świat"},{w:"Kraj bez lotniska",h:"Dojedziesz tylko autem"}]}
+/* --- DANE GRY --- */
+const LOCATIONS = [
+    "Statek Kosmiczny", "Baza Wojskowa", "Łódź Podwodna", "Szkoła", "Szpital",
+    "Restauracja", "Stacja Polarna", "Komisariat Policji", "Kino", "Kasyno",
+    "Pociąg Pasażerski", "Samolot", "Więzienie", "Bank", "Supermarket"
 ];
+const COLORS = ['#ff4d4d','#ffaf40','#fffa65','#32ff7e','#18dcff','#7d5fff'];
+const GAME_PREFIX = "tajniacy-app-v1-"; // Unikalny prefiks PeerJS
 
-/* ============ NARZĘDZIA ============ */
-const COLORS=["#F0453F","#48E3D4","#FFC145","#7BD44F","#C77DFF","#FF8FB1","#F98D2C","#6EA8FF","#E8E4D8","#2BC48A","#D4F04A","#FF6BD6","#8AF0C0","#FFA8A8","#B0B6FF"];
-const $=id=>document.getElementById(id);
-const SCREENS=["s-home","s-setup","s-reveal","s-game","s-vote","s-eject","s-end","n-join","n-conn","n-lobby","n-card","n-wait","n-discuss","n-vote","n-eject","n-end"];
-function show(id){SCREENS.forEach(s=>{const el=$(s);if(el)el.classList.toggle("on",s===id);});window.scrollTo(0,0);}
-function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
-function crewSVG(c){return '<svg class="crew" viewBox="0 0 30 34" aria-hidden="true"><path d="M7 8c0-4 3-6 8-6s8 2 8 6v14c0 3-2 5-5 5h-1v5h-4v-5H12c-3 0-5-2-5-5V8z" fill="'+c+'"/><path d="M23 11h3c1.6 0 3 1.5 3 4s-1.4 4-3 4h-3z" fill="'+c+'"/><path d="M12 8c-2 1-3 3-3 5 0 1 1 2 2 2h6c1.4 0 2-1 2-2 0-3-3-6-7-5z" fill="#B7E6F5"/></svg>';}
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function maxImp(n){return Math.max(1,Math.ceil(n/2)-1);}
-function fmt(s){return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");}
-function pickEntry(prev){let ci;do{ci=Math.floor(Math.random()*DATA.length);}while(DATA.length>1&&ci===prev);
-  const co=DATA[ci],e=co.w[Math.floor(Math.random()*co.w.length)];
-  return {ci,country:{c:co.c,f:co.f,lang:co.lang,hi:co.hi},word:e.w,hint:e.h};}
-function cardHTML(country,canSee,isImp,word,hint){
-  const head=canSee&&country?'<div class="flag">'+country.f+'</div><div class="country">'+esc(country.c)+'</div><div class="hello">'+esc(country.hi)+' — po '+esc(country.lang)+'</div>'
-    :'<div class="flag">🌍</div><div class="country">Kraj nieznany</div>';
-  return isImp?head+'<div class="word">Impostor</div><div class="tip"><b>TWOJA PODPOWIEDŹ</b>'+esc(hint)+'</div>'
-              :head+'<div class="word">'+esc(word)+'</div>';}
-function countryBanner(country,visible){
-  return visible&&country?'<div class="flag">'+country.f+'</div><h2>'+esc(country.c)+'</h2><div class="hello">'+esc(country.hi)+' — tak witają się po '+esc(country.lang)+'</div>'
-    :'<div class="flag">🌍</div><h2>Kraj ukryty</h2><div class="hello">Nikt oficjalnie nie wie, skąd jest hasło</div>';}
-function rolesListHTML(l){return l.map(p=>'<li class="'+(p.alive?'':'dead')+'">'+crewSVG(p.color)+'<span class="nm">'+esc(p.name)+'</span><span class="tag '+(p.imp?'i':'c')+'">'+(p.imp?'impostor':'gracz')+'</span></li>').join("");}
-function endVerdict(result,word,country){
-  const t=result==="crew"?["🎉","var(--crew)","Wygrywają gracze!"]:result==="imp"?["👾","var(--impostor)","Wygrywają impostorzy!"]:["🃏","var(--amber)","Koniec rundy"];
-  return '<div style="font-size:52px">'+t[0]+'</div><h2 style="color:'+t[1]+'">'+t[2]+'</h2><p style="color:var(--muted);margin:0;font-weight:600">Hasło: <b style="color:var(--amber)">'+esc(word)+'</b> · '+(country?country.f+' '+esc(country.c):'')+'</p>';}
+/* --- STAN LOKALNY --- */
+let locPlayers = [];
+let locImps = 1;
+let locGame = null;
+let passIndex = 0;
+let timerInt = null;
+let timerSec = 120;
 
-/* ============ AWARIE ============ */
-function crash(msg){try{$("crashText").textContent=msg||"Coś poszło nie tak.";$("crash").style.display="block";}catch(e){}}
-window.addEventListener("error",e=>crash("Błąd: "+(e.message||"nieznany")+". Możesz wrócić do menu."));
-window.addEventListener("unhandledrejection",()=>{});
-$("crashBtn").onclick=()=>{$("crash").style.display="none";try{netLeave();}catch(e){}show("s-home");};
-function safe(fn){return function(){try{return fn.apply(this,arguments);}catch(e){crash("Błąd: "+e.message);}};}
+/* --- STAN SIECIOWY --- */
+let peer = null;
+let connections = {}; // Pule połączeń dla hosta
+let hostConn = null; // Połączenie klienta z hostem
+let isHost = false;
+let myId = '';
+let roomCode = '';
+let netPlayers = [];
+let netImps = 1;
+let netGame = null;
+let netVotes = {};
 
-/* ============ MUZYKA (generowana, bez plików) ============ */
-const Music=(function(){
-  let ctx=null,master=null,padGain=null,seq=null,on=true,mood="calm",step=0;
-  const SCALE=[220,261.63,293.66,329.63,392,440,523.25];
-  function build(){
-    const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return false;
-    ctx=new AC();master=ctx.createGain();master.gain.value=0.0;master.connect(ctx.destination);
-    const filt=ctx.createBiquadFilter();filt.type="lowpass";filt.frequency.value=520;filt.Q.value=6;filt.connect(master);
-    padGain=ctx.createGain();padGain.gain.value=0.16;padGain.connect(filt);
-    [55,55.4,82.5].forEach(f=>{const o=ctx.createOscillator();o.type="sawtooth";o.frequency.value=f;o.connect(padGain);o.start();});
-    const lfo=ctx.createOscillator(),lg=ctx.createGain();lfo.frequency.value=0.06;lg.gain.value=180;
-    lfo.connect(lg);lg.connect(filt.frequency);lfo.start();
-    master.gain.linearRampToValueAtTime(0.11,ctx.currentTime+2.5);
-    seq=setInterval(blip,620);
-    return true;
-  }
-  function blip(){
-    if(!ctx||ctx.state!=="running")return;
-    step++;
-    if(mood==="calm"&&step%2)return;
-    if(Math.random()<(mood==="tense"?0.25:0.45))return;
-    const o=ctx.createOscillator(),g=ctx.createGain(),t=ctx.currentTime;
-    o.type=mood==="tense"?"square":"triangle";
-    o.frequency.value=SCALE[Math.floor(Math.random()*SCALE.length)]*(mood==="tense"?0.5:1);
-    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(mood==="tense"?0.05:0.035,t+0.03);
-    g.gain.exponentialRampToValueAtTime(0.0001,t+0.55);
-    o.connect(g);g.connect(master);o.start(t);o.stop(t+0.6);
-  }
-  return {
-    kick(){try{if(!on)return;if(!ctx){if(!build())return;}if(ctx.state==="suspended")ctx.resume();}catch(e){}},
-    toggle(){on=!on;try{if(!on&&ctx)ctx.suspend();else this.kick();}catch(e){}return on;},
-    isOn(){return on;},
-    mood(m){mood=m;try{if(seq){clearInterval(seq);seq=setInterval(blip,m==="tense"?420:620);}}catch(e){}}
-  };
-})();
-$("sound").onclick=function(){const s=Music.toggle();$("sound").textContent=s?"🔈":"🔇";};
-document.addEventListener("pointerdown",function once(){Music.kick();document.removeEventListener("pointerdown",once);},{once:true});
-
-/* ============ TRYB: JEDEN TELEFON ============ */
-let players=[],imposters=1,G=null,idx=0,flipped=false,lastCi=-1,tSec=120,tick=null;
-function save(){try{localStorage.setItem("impeu",JSON.stringify(players));}catch(e){}}
-function load(){try{const r=localStorage.getItem("impeu");if(r){const a=JSON.parse(r);if(Array.isArray(a))players=a.filter(x=>typeof x==="string"&&x).slice(0,15);}}catch(e){players=[];}}
-function renderPlayers(){
-  $("playerList").innerHTML=players.map((n,i)=>'<li>'+crewSVG(COLORS[i%COLORS.length])+'<span class="nm">'+esc(n)+'</span><button class="kill" data-i="'+i+'" aria-label="Usuń">×</button></li>').join("");
-  $("emptyMsg").style.display=players.length?"none":"block";
-  const m=maxImp(Math.max(players.length,3));if(imposters>m)imposters=m;
-  $("impVal").textContent=imposters;save();
+/* --- NARZĘDZIA --- */
+const $ = id => document.getElementById(id);
+function nav(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    $(screenId).classList.add('active');
 }
-function addPlayer(){const v=$("nameInput").value.trim();if(!v)return;
-  if(players.length>=15){$("setupErr").textContent="Maksymalnie 15 graczy.";return;}
-  players.push(v);$("nameInput").value="";$("setupErr").textContent="";renderPlayers();}
-$("addBtn").onclick=safe(addPlayer);
-$("nameInput").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addPlayer();}});
-$("playerList").addEventListener("click",safe(e=>{const b=e.target.closest(".kill");if(!b)return;players.splice(+b.dataset.i,1);renderPlayers();}));
-$("impMinus").onclick=()=>{imposters=Math.max(1,imposters-1);renderPlayers();};
-$("impPlus").onclick=()=>{const m=maxImp(Math.max(players.length,3));imposters=Math.min(m,imposters+1);renderPlayers();
-  $("setupErr").textContent=imposters===m?"Impostorów musi być mniej niż połowa.":"";};
-$("modeLocal").onclick=()=>show("s-setup");
-$("homeFromSetup").onclick=()=>show("s-home");
-$("backToSetup").onclick=()=>show("s-setup");
-
-const deal=safe(function(){
-  if(players.length<3){$("setupErr").textContent="Potrzeba co najmniej 3 graczy.";return;}
-  const e=pickEntry(lastCi);lastCi=e.ci;
-  const order=shuffle(players.map((n,i)=>i)),impSet=new Set(order.slice(0,Math.min(imposters,maxImp(players.length))));
-  G={country:e.country,word:e.word,hint:e.hint,showCountry:$("showCountry").checked,impKnows:$("impKnowsCountry").checked,
-     people:players.map((n,i)=>({name:n,color:COLORS[i%COLORS.length],imp:impSet.has(i),alive:true})),result:null};
-  idx=0;flipped=false;$("setupErr").textContent="";Music.mood("calm");show("s-reveal");renderReveal();
-});
-$("startBtn").onclick=deal;$("newRound").onclick=deal;
-function renderReveal(){
-  const p=G.people[idx];
-  $("revCounter").textContent="Karta "+(idx+1)+" z "+G.people.length;
-  $("revName").textContent=p.name;$("flip").classList.remove("turned");flipped=false;
-  $("revealBtn").textContent="Odkryj kartę";$("revealBtn").className="btn big";
-  $("cardFront").className="face front"+(p.imp?" bad":"");
-  $("cardFront").innerHTML=cardHTML(G.country,(!p.imp||G.impKnows),p.imp,G.word,G.hint);
+function rnd(max) { return Math.floor(Math.random() * max); }
+function log(msg) {
+    const el = $('netStatus');
+    el.style.display = 'block';
+    el.innerHTML += `<div>> ${msg}</div>`;
+    el.scrollTop = el.scrollHeight;
 }
-const cardAction=safe(function(){
-  if(!flipped){flipped=true;$("flip").classList.add("turned");
-    $("revealBtn").textContent=idx===G.people.length-1?"Zakryj i zaczynamy":"Zakryj i podaj dalej";
-    $("revealBtn").className="btn big red";
-  }else{$("flip").classList.remove("turned");idx++;
-    setTimeout(()=>{idx>=G.people.length?startDiscussion():renderReveal();},380);}
-});
-$("revealBtn").onclick=cardAction;$("flip").onclick=()=>{if(!flipped)cardAction();};
-function aliveHTML(){return G.people.map(p=>'<li class="'+(p.alive?'':'dead')+'">'+crewSVG(p.color)+'<span class="nm">'+esc(p.name)+'</span>'+(p.alive?'':'<span class="tag '+(p.imp?'i':'c')+'">'+(p.imp?'impostor':'gracz')+'</span>')+'</li>').join("");}
-function startDiscussion(){$("gameCountry").innerHTML=countryBanner(G.country,G.showCountry);
-  $("aliveList").innerHTML=aliveHTML();resetTimer();Music.mood("calm");show("s-game");}
-function resetTimer(){clearInterval(tick);tick=null;tSec=120;$("clock").textContent=fmt(tSec);$("timerBtn").textContent="Start";}
-$("timerBtn").onclick=()=>{if(tick){clearInterval(tick);tick=null;$("timerBtn").textContent="Wznów";return;}
-  $("timerBtn").textContent="Pauza";
-  tick=setInterval(()=>{tSec--;$("clock").textContent=fmt(Math.max(0,tSec));if(tSec<=0){clearInterval(tick);tick=null;$("timerBtn").textContent="Start";}},1000);};
-$("timerReset").onclick=resetTimer;
-$("toVote").onclick=safe(()=>{clearInterval(tick);tick=null;Music.mood("tense");
-  $("voteGrid").innerHTML=G.people.map((p,i)=>p.alive?'<button data-i="'+i+'">'+crewSVG(p.color)+'<span>'+esc(p.name)+'</span></button>':'').join("");
-  show("s-vote");});
-$("backToGame").onclick=()=>{Music.mood("calm");show("s-game");};
-$("endNow").onclick=()=>{G.result=null;showEnd();};
-$("voteGrid").addEventListener("click",safe(e=>{
-  const b=e.target.closest("button[data-i]");if(!b)return;
-  const p=G.people[+b.dataset.i];p.alive=false;
-  const ia=G.people.filter(x=>x.imp&&x.alive).length,ca=G.people.filter(x=>!x.imp&&x.alive).length;
-  G.result=ia===0?"crew":(ia>=ca?"imp":null);
-  $("ejectBox").innerHTML='<div class="flyer">'+(p.imp?"👾":"🧑‍🚀")+'</div><h2 style="color:'+(p.imp?"var(--crew)":"var(--impostor)")+'">'+esc(p.name)+(p.imp?" był impostorem!":" nie był impostorem.")+'</h2><p style="color:var(--muted);margin:0;font-weight:600">Impostorów w grze: '+ia+'</p>';
-  $("ejectNext").textContent=G.result?"Zobacz wynik":"Dalej: dyskusja";show("s-eject");}));
-$("ejectNext").onclick=()=>{G.result?showEnd():startDiscussion();};
-function showEnd(){Music.mood("calm");$("endBox").innerHTML=endVerdict(G.result,G.word,G.country);
-  $("endList").innerHTML=rolesListHTML(G.people);show("s-end");}
 
-/* ============ TRYB: WIELE TELEFONÓW (WebRTC / PeerJS HTTPS/STUN/TURN) ============ */
-const PREFIX="impeu-2026-";
-const ICE_CONFIG={iceServers:[
-  {urls:"stun:stun.l.google.com:19302"},
-  {urls:"stun:stun1.l.google.com:19302"},
-  {urls:"stun:stun.cloudflare.com:3478"},
-  {urls:"turn:openrelay.metered.ca:80",username:"openrelayproject",credential:"openrelayproject"},
-  {urls:"turn:openrelay.metered.ca:443",username:"openrelayproject",credential:"openrelayproject"},
-  {urls:"turn:openrelay.metered.ca:443?transport=tcp",username:"openrelayproject",credential:"openrelayproject"}
-]};
+/* =========================================================================
+   TRYB LOKALNY
+========================================================================= */
+function addLocalPlayer() {
+    const name = $('locName').value.trim();
+    if (!name) return;
+    if (locPlayers.length >= 12) return alert('Maksymalnie 12 graczy!');
+    locPlayers.push({ name, color: COLORS[locPlayers.length % COLORS.length], alive: true, imp: false });
+    $('locName').value = '';
+    renderLocPlayers();
+}
 
-let pingInterval=null;
-function startPing(){
-  if(pingInterval) clearInterval(pingInterval);
-  pingInterval = setInterval(()=>{
-    if(room){
-      Object.values(conns).forEach(c=>{
-        if(c && c.open) { try{ c.send({t:"ping"}); }catch(e){} }
-      });
+function renderLocPlayers() {
+    $('locPlayerList').innerHTML = locPlayers.map((p, i) => 
+        `<li><div><span class="color-dot" style="background:${p.color}"></span>${p.name}</div>
+        <button style="width:auto; padding:5px 10px; margin:0;" onclick="locPlayers.splice(${i},1); renderLocPlayers()">X</button></li>`
+    ).join('');
+}
+
+function changeImp(mode, val) {
+    let playersCount = mode === 'loc' ? locPlayers.length : netPlayers.length;
+    let max = Math.max(1, Math.floor(playersCount / 3));
+    if (mode === 'loc') {
+        locImps = Math.max(1, Math.min(max, locImps + val));
+        $('locImpCount').innerText = locImps;
+    } else {
+        netImps = Math.max(1, Math.min(max, netImps + val));
+        $('netImpCount').innerText = netImps;
+        broadcast({ type: 'LOBBY_UPDATE', players: netPlayers, imps: netImps });
     }
-  }, 15000);
 }
 
-function connLog(msg){
-  const el=$("connLog");if(!el)return;
-  const t=new Date().toTimeString().slice(0,8);
-  el.textContent+=(el.textContent?"\n":"")+"["+t+"] "+msg;
-  el.scrollTop=el.scrollHeight;
-}
-function clearLog(){const el=$("connLog");if(el)el.textContent="";}
-function watchIce(conn,label){
-  let tries=0;
-  const check=()=>{
-    try{
-      const pc=conn&&conn.peerConnection;
-      if(pc){
-        pc.addEventListener("iceconnectionstatechange",()=>{
-          connLog("ICE ("+label+"): "+pc.iceConnectionState);
-          if(pc.iceConnectionState==="failed"){
-            try{ pc.restartIce(); }catch(e){}
-          }
-        });
-        return;
-      }
-    }catch(e){}
-    if(++tries<40)setTimeout(check,250);
-  };
-  check();
-}
-let peer=null,isHost=false,conns={},myPid=null,room=null,myCode=null,lastState=null,netCi=-1,nFlipped=false,seenSent=false,myVote=null,nTick=null;
+function startLocalGame() {
+    if (locPlayers.length < 3) return alert('Potrzeba minimum 3 graczy!');
+    
+    // Losowanie lokacji i ról
+    const location = LOCATIONS[rnd(LOCATIONS.length)];
+    locPlayers.forEach(p => { p.imp = false; p.alive = true; });
+    
+    let impsAssigned = 0;
+    while(impsAssigned < locImps) {
+        let r = rnd(locPlayers.length);
+        if (!locPlayers[r].imp) { locPlayers[r].imp = true; impsAssigned++; }
+    }
 
-function peerAvailable(){return typeof window.Peer==="function";}
-if(!peerAvailable()){
-  window.addEventListener("load",()=>{if(!peerAvailable())$("netNote").textContent="Brak internetu — działa tryb „Jeden telefon”. Gra na wielu telefonach wymaga połączenia z siecią.";});
+    locGame = { location };
+    passIndex = 0;
+    showLocalPass();
 }
-$("modeNet").onclick=()=>{
-  if(!peerAvailable()){$("netNote").textContent="Nie udało się wczytać modułu połączeń. Sprawdź internet i odśwież stronę.";return;}
-  if(window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    $("netNote").textContent="UWAGA: Uruchamiasz stronę po HTTP! Do połączenia hotspot-Wi-Fi na telefonie absolutnie wymagany jest protokół HTTPS.";
-  }
-  show("n-join");
+
+function showLocalPass() {
+    nav('scr-local-pass');
+    $('passCard').style.display = 'none';$('passBtn').innerText = 'Pokaż moją kartę';
+    $('passTitle').innerText = `Kolej gracza: ${locPlayers[passIndex].name}`;
+}
+
+let cardRevealed = false;
+function revealLocalCard() {
+    const p = locPlayers[passIndex];
+    if (!cardRevealed) {
+        $('passCard').style.display = 'block';$('passRole').innerText = p.imp ? 'Jesteś Impostorem!' : 'Jesteś w drużynie';
+        $('passRole').className = p.imp ? 'imp-red' : 'crew-blue';
+        $('passLocation').innerText = p.imp ? 'Zgadnij lokację' : locGame.location;
+        $('passBtn').innerText = 'Schowaj kartę';
+        cardRevealed = true;
+    } else {
+        cardRevealed = false;
+        passIndex++;
+        if (passIndex < locPlayers.length) {
+            showLocalPass();
+        } else {
+            startLocalDiscussion();
+        }
+    }
+}
+
+function startLocalDiscussion() {
+    nav('scr-local-game');
+    resetTimer();
+    renderLocAlive();
+}
+
+function renderLocAlive() {
+    $('locAliveList').innerHTML = locPlayers.map(p => 
+        `<li style="opacity: ${p.alive ? '1' : '0.4'}">
+        <div><span class="color-dot" style="background:${p.color}"></span><span style="text-decoration: ${p.alive ? 'none' : 'line-through'}">${p.name}</span></div>
+        </li>`
+    ).join('');
+}
+
+/* TIMER */
+function updateTimerUI() {
+    const m = Math.floor(timerSec / 60).toString().padStart(2, '0');
+    const s = (timerSec % 60).toString().padStart(2, '0');
+    $('timer').innerText = `${m}:${s}`;
+}
+function toggleTimer() {
+    if (timerInt) { clearInterval(timerInt); timerInt = null; }
+    else {
+        timerInt = setInterval(() => {
+            if (timerSec > 0) { timerSec--; updateTimerUI(); }
+            else { clearInterval(timerInt); timerInt = null; alert('Koniec czasu!'); }
+        }, 1000);
+    }
+}
+function resetTimer() {
+    if (timerInt) clearInterval(timerInt);
+    timerInt = null;
+    timerSec = 120;
+    updateTimerUI();
+}
+
+function startLocalVote() {
+    nav('scr-local-vote');
+    $('locVoteGrid').innerHTML = locPlayers.filter(p => p.alive).map(p => 
+        `<button onclick="executeLocalVote('${p.name}')"><span class="color-dot" style="background:${p.color}"></span>${p.name}</button>`
+    ).join('');
+}
+
+function executeLocalVote(name) {
+    const p = locPlayers.find(x => x.name === name);
+    p.alive = false;
+    alert(`${p.name} został wyrzucony! Był: ${p.imp ? 'Impostorem' : 'Niewinnym'}.`);
+    
+    const aliveImps = locPlayers.filter(x => x.alive && x.imp).length;
+    const aliveCrew = locPlayers.filter(x => x.alive && !x.imp).length;
+    
+    if (aliveImps === 0) endGame('Obywatele wygrywają!', locGame.location, locPlayers, 'loc');
+    else if (aliveImps >= aliveCrew) endGame('Impostorzy wygrywają!', locGame.location, locPlayers, 'loc');
+    else startLocalDiscussion();
+}
+
+/* =========================================================================
+   TRYB SIECIOWY (WebRTC za pomocą publicznych serwerów STUN)
+========================================================================= */
+const peerConfig = {
+    config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
 };
-$("homeFromNet").onclick=()=>show("s-home");
-function netErr(m){$("netErr").textContent=m||"";}
-function newCode(){let s="";const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";for(let i=0;i<4;i++)s+=A[Math.floor(Math.random()*A.length)];return s;}
-function newPid(){return Math.random().toString(36).slice(2,10);}
 
-function netLeave(){
-  if(pingInterval) clearInterval(pingInterval);
-  try{Object.values(conns).forEach(c=>{try{c.close();}catch(e){}});}catch(e){}
-  conns={};room=null;isHost=false;lastState=null;myVote=null;seenSent=false;
-  if(nTick){clearInterval(nTick);nTick=null;}
-  try{if(peer&&!peer.destroyed)peer.destroy();}catch(e){}
-  peer=null;
-}
-$("netLeave").onclick=$("nLeave2").onclick=()=>{netLeave();show("s-home");};
-$("connCancel").onclick=()=>{netLeave();show("n-join");};
-$("lobbyList").addEventListener("click",safe(e=>{
-  const b=e.target.closest(".kill");if(!b||!isHost)return;
-  hostRemovePlayer(b.dataset.k);
-}));
+function createNetGame() {
+    const name = $('netName').value.trim();
+    if (!name) return alert('Wpisz imię!');
+    
+    isHost = true;
+    roomCode = Math.random().toString(36).substring(2,6).toUpperCase();
+    myId = GAME_PREFIX + roomCode;
+    
+    log(`Tworzenie pokoju: ${roomCode}...`);
+    peer = new Peer(myId, peerConfig);
+    
+    peer.on('open', (id) => {
+        log(`Serwer utworzony! Kod: ${roomCode}`);
+        netPlayers = [{ id: myId, name: name, color: COLORS[0], host: true, alive: true, imp: false }];
+        updateNetLobby();
+        nav('scr-net-lobby');
+    });
 
-/* --- HOST --- */
-$("netCreate").onclick=safe(function(){
-  const name=$("netName").value.trim();if(!name){netErr("Wpisz imię.");return;}
-  netErr("");$("connText").textContent="Zakładam pokój…";clearLog();show("n-conn");
-  netLeave();isHost=true;myPid="host";myCode=newCode();
-  let tries=0;
-  const make=()=>{
-    connLog("Łączę się z serwerem sygnalizacyjnym (HTTPS)...");
-    peer=new Peer(PREFIX+myCode,{
-      debug:0,
-      config:ICE_CONFIG,
-      secure:true,
-      port:443
+    peer.on('connection', (conn) => {
+        conn.on('data', (data) => handleHostData(conn, data));
+        conn.on('close', () => {
+            netPlayers = netPlayers.filter(p => p.id !== conn.peer);
+            delete connections[conn.peer];
+            broadcast({ type: 'LOBBY_UPDATE', players: netPlayers, imps: netImps });
+            updateNetLobby();
+        });
     });
-    peer.on("open",()=>{
-      connLog("Połączono. Kod pokoju: "+myCode);
-      room={phase:"lobby",settings:{imposters:1,showCountry:true,impKnows:true},
-        players:[{pid:"host",name:name.slice(0,16),color:COLORS[0],alive:true,imp:false,seen:false,vote:null}],
-        round:null,eject:null,result:null,phaseAt:Date.now()};
-      startPing();
-      pushState();
-    });
-    peer.on("connection",conn=>{
-      connLog("Ktoś próbuje dołączyć…");
-      watchIce(conn,"gracz");
-      conn.on("open",()=>connLog("Kanał danych z graczem otwarty."));
-      conn.on("data",d=>{try{onHostData(conn,d);}catch(e){}});
-      conn.on("close",()=>{
-        const p=Object.keys(conns).find(k=>conns[k]===conn);
-        if(p){delete conns[p];if(room){room.players=room.players.filter(x=>x.pid!==p);
-          if(room.phase!=="lobby"&&room.players.length<2){room.phase="end";room.result=null;}
-          pushState();}}
-      });
-      conn.on("error",err=>connLog("Błąd połączenia z graczem: "+(err&&err.message||err)));
-    });
-    peer.on("error",e=>{
-      connLog("Błąd serwera: "+(e&&e.type||e));
-      if(e&&e.type==="unavailable-id"&&tries<5){tries++;myCode=newCode();try{peer.destroy();}catch(x){}make();return;}
-      netErr("Nie udało się założyć pokoju: "+(e&&e.type||"błąd sieci")+". Spróbuj ponownie.");show("n-join");
-    });
-    peer.on("disconnected",()=>{connLog("Rozłączono z serwerem, próbuję ponownie…");try{peer.reconnect();}catch(e){}});
-  };
-  make();
-});
-function onHostData(conn,d){
-  if(!room||!d||!d.t)return;
-  if(d.t==="ping") return; // Keepalive ping
-  if(d.t==="join"){
-    if(room.phase!=="lobby"){conn.send({t:"kick",msg:"Gra już trwa — poczekaj na nową rundę."});return;}
-    if(room.players.length>=15){conn.send({t:"kick",msg:"Pokój jest pełny."});return;}
-    const pid=newPid();
-    conns[pid]=conn;
-    room.players.push({pid,name:String(d.name||"Gracz").slice(0,16),color:COLORS[room.players.length%COLORS.length],alive:true,imp:false,seen:false,vote:null});
-    conn.send({t:"welcome",pid});
-    pushState();return;
-  }
-  const pid=Object.keys(conns).find(k=>conns[k]===conn);
-  if(!pid)return;
-  handleAction(pid,d);
+
+    peer.on('error', (err) => log('Błąd: ' + err.type));
 }
-function handleAction(pid,d){
-  if(!room||!d||typeof d!=="object"||!d.t)return;
-  const p=room.players.find(x=>x.pid===pid);if(!p)return;
-  if(d.t==="seen"&&room.phase==="reveal"){
-    p.seen=true;
-    if(room.players.every(x=>x.seen)){room.phase="discuss";room.phaseAt=Date.now();}
-  }
-  else if(d.t==="vote"&&room.phase==="vote"&&p.alive&&!p.vote){
-    const t=room.players.find(x=>x.pid===d.target&&x.alive);if(!t)return;
-    p.vote=t.pid;
-    if(room.players.filter(x=>x.alive).every(x=>x.vote))resolveVote();
-  }
-  else if(pid==="host"){
-    if(d.t==="settings"){const m=maxImp(room.players.length);room.settings.imposters=Math.max(1,Math.min(m,room.settings.imposters+d.d));}
-    else if(d.t==="start")startRound(d);
-    else if(d.t==="toVote"){room.players.forEach(x=>x.vote=null);room.phase="vote";room.phaseAt=Date.now();}
-    else if(d.t==="endNow"){room.phase="end";room.phaseAt=Date.now();}
-    else if(d.t==="next"){
-      if(room.result){room.phase="end";}
-      else{room.players.forEach(x=>x.vote=null);room.phase="discuss";}
-      room.phaseAt=Date.now();
+
+function joinNetGame() {
+    const name = $('netName').value.trim();
+    roomCode = $('netCode').value.trim().toUpperCase();
+    if (!name || roomCode.length !== 4) return alert('Wpisz imię i 4-znakowy kod!');
+    
+    isHost = false;
+    log(`Łączenie z ${roomCode}...`);
+    peer = new Peer(peerConfig);
+    
+    peer.on('open', (id) => {
+        myId = id;
+        hostConn = peer.connect(GAME_PREFIX + roomCode, { reliable: true });
+        
+        hostConn.on('open', () => {
+            log('Połączono! Dołączanie...');
+            hostConn.send({ type: 'JOIN', name: name });
+        });
+        
+        hostConn.on('data', handleClientData);
+        hostConn.on('close', () => { alert('Rozłączono z hostem.'); nav('scr-home'); });
+    });
+    
+    peer.on('error', (err) => log('Błąd: ' + err.type));
+}
+
+function disconnectNet() {
+    if (peer) peer.destroy();
+    nav('scr-home');
+}
+
+/* --- LOGIKA HOSTA --- */
+function handleHostData(conn, data) {
+    if (data.type === 'JOIN') {
+        const pColor = COLORS[netPlayers.length % COLORS.length];
+        netPlayers.push({ id: conn.peer, name: data.name, color: pColor, host: false, alive: true, imp: false });
+        connections[conn.peer] = conn;
+        broadcast({ type: 'LOBBY_UPDATE', players: netPlayers, imps: netImps });
+        updateNetLobby();
+    } else if (data.type === 'VOTE') {
+        netVotes[conn.peer] = data.target;
+        checkNetVotes();
     }
-    else if(d.t==="lobby"){
-      room.phase="lobby";room.round=null;room.eject=null;room.result=null;
-      room.players.forEach(x=>{x.alive=true;x.imp=false;x.seen=false;x.vote=null;});
-      room.phaseAt=Date.now();
-    }
-  }
-  pushState();
-}
-function startRound(d){
-  if(room.players.length<3)return;
-  const e=pickEntry(netCi);netCi=e.ci;
-  const n=room.players.length,k=Math.max(1,Math.min(room.settings.imposters,maxImp(n)));
-  const order=shuffle(room.players.map((x,i)=>i)),impSet=new Set(order.slice(0,k));
-  room.players.forEach((x,i)=>{x.imp=impSet.has(i);x.alive=true;x.seen=false;x.vote=null;});
-  room.round={country:e.country,word:e.word,hint:e.hint,countryPublic:!!d.showCountry,impKnows:!!d.impKnows};
-  room.eject=null;room.result=null;room.phase="reveal";room.phaseAt=Date.now();
-}
-function resolveVote(){
-  const alive=room.players.filter(x=>x.alive),tally={};
-  alive.forEach(x=>{if(x.vote)tally[x.vote]=(tally[x.vote]||0)+1;});
-  const keys=Object.keys(tally);
-  if(!keys.length){room.eject={tie:true};}
-  else{
-    const top=Math.max.apply(null,keys.map(k=>tally[k])),win=keys.filter(k=>tally[k]===top);
-    if(win.length>1)room.eject={tie:true};
-    else{const out=room.players.find(x=>x.pid===win[0]);out.alive=false;room.eject={tie:false,name:out.name,imp:out.imp};}
-  }
-  const ia=room.players.filter(x=>x.alive&&x.imp).length,ca=room.players.filter(x=>x.alive&&!x.imp).length;
-  room.eject.impAlive=ia;
-  room.result=ia===0?"crew":(ia>=ca?"imp":null);
-  room.phase="eject";room.phaseAt=Date.now();
-}
-function stateFor(pid){
-  const me=room.players.find(x=>x.pid===pid);if(!me)return null;
-  const revealAll=room.phase==="end";
-  const s={code:myCode,phase:room.phase,phaseAt:room.phaseAt,result:room.result,eject:room.eject,
-    settings:{imposters:room.settings.imposters},
-    players:room.players.map(p=>{
-      const r={pid:p.pid,name:p.name,color:p.color,alive:p.alive,seen:p.seen,voted:!!p.vote,host:p.pid==="host"};
-      if(revealAll||!p.alive)r.imp=p.imp;return r;}),
-    seenCount:room.players.filter(p=>p.seen).length,
-    aliveCount:room.players.filter(p=>p.alive).length,
-    votedCount:room.players.filter(p=>p.alive&&p.vote).length,
-    you:{pid:me.pid,name:me.name,host:me.pid==="host",alive:me.alive,imp:me.imp}};
-  if(room.round){
-    s.round={country:room.round.country,countryPublic:room.round.countryPublic};
-    if(revealAll)s.round.word=room.round.word;
-    s.you.canSeeCountry=(!me.imp)||room.round.impKnows;
-    s.you.word=me.imp?null:room.round.word;
-    s.you.hint=me.imp?room.round.hint:null;
-  }
-  return s;
-}
-function hostRemovePlayer(pid){
-  if(!isHost||!room||room.phase!=="lobby"||!pid||pid==="host")return;
-  const conn=conns[pid];
-  if(conn){try{conn.send({t:"removed"});}catch(e){}
-    setTimeout(()=>{try{conn.close();}catch(e){}},250);}
-  delete conns[pid];
-  room.players=room.players.filter(x=>x.pid!==pid);
-  pushState();
-}
-function pushState(){
-  if(!room)return;
-  Object.keys(conns).forEach(pid=>{
-    const s=stateFor(pid);
-    if(s){try{conns[pid].send({t:"state",s});}catch(e){}}
-  });
-  renderNet(stateFor("host"));
 }
 
-/* --- KLIENT --- */
-$("netJoin").onclick=safe(function(){
-  const name=$("netName").value.trim();if(!name){netErr("Wpisz imię.");return;}
-  const code=$("netCode").value.trim().toUpperCase();
-  if(code.length!==4){netErr("Kod ma 4 znaki.");return;}
-  netErr("");$("connText").textContent="Łączę z pokojem "+code+"…";clearLog();show("n-conn");
-  netLeave();isHost=false;myCode=code;
-  connLog("Łączę się z serwerem sygnalizacyjnym...");
-  peer=new Peer({
-    debug:0,
-    config:ICE_CONFIG,
-    secure:true,
-    port:443
-  });
-  const fail=m=>{connLog("BŁĄD: "+m);netErr(m);netLeave();show("n-join");};
-  const guard=setTimeout(()=>{if(!myPid||myPid==="host")fail("Nie udało się połączyć w 25 sekund. Log powyżej pokazuje, na czym stanęło.");},25000);
-  peer.on("open",()=>{
-    connLog("Połączono z serwerem. Szukam pokoju "+code+"…");
-    const conn=peer.connect(PREFIX+code,{reliable:true});
-    conns.host=conn;
-    watchIce(conn,"host");
-    conn.on("open",()=>{connLog("Kanał danych otwarty, wysyłam imię…");conn.send({t:"join",name:name.slice(0,16)});});
-    conn.on("data",d=>{
-      try{
-        if(d.t==="welcome"){clearTimeout(guard);connLog("Dołączono do pokoju.");myPid=d.pid;}
-        else if(d.t==="state"){clearTimeout(guard);renderNet(d.s);}
-        else if(d.t==="kick"){clearTimeout(guard);fail(d.msg||"Prowadzący zamknął pokój.");}
-        else if(d.t==="removed"){clearTimeout(guard);fail("Prowadzący usunął Cię z pokoju.");}
-      }catch(e){}
+function broadcast(msg) {
+    Object.values(connections).forEach(c => {
+        if (c && c.open) c.send(msg);
     });
-    conn.on("close",()=>{if(room!==null||lastState){netLeave();netErr("Połączenie z prowadzącym przerwane.");show("n-join");}});
-    conn.on("error",err=>{connLog("Błąd kanału: "+(err&&err.message||err));fail("Błąd połączenia. Spróbuj ponownie.");});
-  });
-  peer.on("error",e=>{
-    clearTimeout(guard);
-    connLog("Błąd: "+(e&&e.type||e));
-    if(e&&e.type==="peer-unavailable")fail("Nie ma pokoju o kodzie "+code+".");
-    else fail("Problem z siecią ("+(e&&e.type||"?")+"). Spróbuj ponownie.");
-  });
-});
-function sendAction(d){
-  try{
-    if(isHost)handleAction("host",d);
-    else if(conns.host&&conns.host.open)conns.host.send(d);
-  }catch(e){}
 }
 
-/* --- WSPÓLNE RENDEROWANIE SIECIOWE --- */
-function renderNet(s){
-  if(!s)return;
-  const prev=lastState;lastState=s;
-  if(!prev||prev.phase!==s.phase){
-    seenSent=false;myVote=null;nFlipped=false;
-    $("nFlip").classList.remove("turned");
-    $("nRevealBtn").textContent="Odkryj kartę";$("nRevealBtn").className="btn big";
-    Music.mood(s.phase==="vote"||s.phase==="eject"?"tense":"calm");
-    if(s.phase==="discuss")netTimer(s.phaseAt);
-  }
-  const list=extra=>s.players.map(x=>'<li class="'+(x.alive?'':'dead')+'">'+crewSVG(x.color)+'<span class="nm">'+esc(x.name)+(x.pid===s.you.pid?" (Ty)":"")+'</span>'+(extra(x)||'')+'</li>').join("");
-  const host=s.you.host;
-
-  if(s.phase==="lobby"){
-    $("lobbyCode").textContent=s.code;
-    $("lobbyList").innerHTML=s.players.map(x=>{
-      let extra=x.host?'<span class="tag w">prowadzi</span>':(host?'<button class="kill" data-k="'+x.pid+'" aria-label="Usuń '+esc(x.name)+'">×</button>':'');
-      return '<li>'+crewSVG(x.color)+'<span class="nm">'+esc(x.name)+(x.pid===s.you.pid?" (Ty)":"")+'</span>'+extra+'</li>';
-    }).join("");
-    $("hostBox").style.display=host?"":"none";
-    $("nImpVal").textContent=s.settings.imposters;
-    $("netStart").disabled=s.players.length<3;
-    $("waitHost").textContent=host?(s.players.length<3?"Potrzeba co najmniej 3 osób w pokoju.":""):"Czekamy, aż prowadzący rozda karty.";
-    show("n-lobby");return;
-  }
-  if(s.phase==="reveal"){
-    if(!seenSent){
-      $("nMyName").textContent=s.you.name;
-      $("nCardFront").className="face front"+(s.you.imp?" bad":"");
-      $("nCardFront").innerHTML=cardHTML(s.round&&s.round.country,s.you.canSeeCountry,s.you.imp,s.you.word,s.you.hint);
-      show("n-card");
-    }else{
-      $("waitCount").textContent=s.seenCount+"/"+s.players.length;
-      $("waitText").textContent="Czekamy, aż wszyscy zobaczą swoje karty.";
-      $("waitList").innerHTML=list(x=>x.seen?'<span class="tag c">gotowy</span>':'<span class="tag w">czyta</span>');
-      show("n-wait");
-    }return;
-  }
-  if(s.phase==="discuss"){
-    $("nCountry").innerHTML=countryBanner(s.round&&s.round.country,s.round&&s.round.countryPublic);
-    $("nAliveList").innerHTML=list(x=>x.alive?'':'<span class="tag '+(x.imp?'i':'c')+'">'+(x.imp?'impostor':'gracz')+'</span>');
-    $("nDiscussHost").style.display=host?"":"none";
-    $("nDiscussWait").textContent=host?"":"Prowadzący rozpocznie głosowanie.";
-    show("n-discuss");return;
-  }
-  if(s.phase==="vote"){
-    if(!s.you.alive){
-      $("waitCount").textContent=s.votedCount+"/"+s.aliveCount;
-      $("waitText").textContent="Już nie głosujesz — czekamy na resztę.";
-      $("waitList").innerHTML=list(x=>x.voted?'<span class="tag c">zagłosował</span>':'');
-      show("n-wait");return;
+function updateNetLobby() {
+    $('lobbyCodeText').innerText = roomCode;
+    $('netPlayerList').innerHTML = netPlayers.map(p => 
+        `<li><div><span class="color-dot" style="background:${p.color}"></span>${p.name} ${p.host?'(Host)':''}</div></li>`
+    ).join('');
+    
+    if (isHost) {
+        $('hostControls').style.display = 'block';$('waitText').innerText = '';
+    } else {
+        $('hostControls').style.display = 'none';$('waitText').innerText = 'Oczekiwanie na start gry przez Hosta...';
     }
-    $("nVoteGrid").innerHTML=s.players.filter(x=>x.alive).map(x=>'<button data-p="'+x.pid+'" class="'+(myVote===x.pid?"sel":"")+'">'+crewSVG(x.color)+'<span>'+esc(x.name)+'</span></button>').join("");
-    $("nVoteStatus").textContent="Zagłosowało "+s.votedCount+" z "+s.aliveCount+(myVote?" · Twój głos oddany":"");
-    show("n-vote");return;
-  }
-  if(s.phase==="eject"){
-    const e=s.eject||{tie:true,impAlive:0};
-    $("nEjectBox").innerHTML=e.tie
-      ?'<div style="font-size:52px">🤝</div><h2 style="color:var(--amber)">Remis — nikt nie wylatuje</h2><p style="color:var(--muted);margin:0;font-weight:600">Impostorów w grze: '+e.impAlive+'</p>'
-      :'<div class="flyer">'+(e.imp?"👾":"🧑‍🚀")+'</div><h2 style="color:'+(e.imp?"var(--crew)":"var(--impostor)")+'">'+esc(e.name)+(e.imp?" był impostorem!":" nie był impostorem.")+'</h2><p style="color:var(--muted);margin:0;font-weight:600">Impostorów w grze: '+e.impAlive+'</p>';
-    $("nEjectNext").style.display=host?"":"none";
-    $("nEjectNext").textContent=s.result?"Zobacz wynik":"Dalej: dyskusja";
-    $("nEjectWait").textContent=host?"":"Czekamy na prowadzącego.";
-    show("n-eject");return;
-  }
-  if(s.phase==="end"){
-    $("nEndBox").innerHTML=endVerdict(s.result,s.round&&s.round.word,s.round&&s.round.country);
-    $("nEndList").innerHTML=rolesListHTML(s.players);
-    $("nNewRound").style.display=host?"":"none";
-    $("nEndWait").textContent=host?"":"Prowadzący może rozdać nową rundę.";
-    show("n-end");return;
-  }
-}
-function nCardAction(){
-  if(!nFlipped){nFlipped=true;$("nFlip").classList.add("turned");
-    $("nRevealBtn").textContent="Widziałem, zakryj";$("nRevealBtn").className="btn big red";}
-  else{$("nFlip").classList.remove("turned");seenSent=true;
-    setTimeout(()=>{sendAction({t:"seen"});if(lastState)renderNet(lastState);},380);}
-}
-$("nRevealBtn").onclick=safe(nCardAction);
-$("nFlip").onclick=()=>{if(!nFlipped)nCardAction();};
-$("nImpMinus").onclick=()=>sendAction({t:"settings",d:-1});
-$("nImpPlus").onclick=()=>sendAction({t:"settings",d:1});
-$("netStart").onclick=()=>sendAction({t:"start",showCountry:$("nShowCountry").checked,impKnows:$("nImpKnows").checked});
-$("nToVote").onclick=()=>sendAction({t:"toVote"});
-$("nEndNow").onclick=()=>sendAction({t:"endNow"});
-$("nEjectNext").onclick=()=>sendAction({t:"next"});
-$("nNewRound").onclick=()=>sendAction({t:"lobby"});
-$("nVoteGrid").addEventListener("click",safe(e=>{
-  const b=e.target.closest("button[data-p]");if(!b||myVote)return;
-  myVote=b.dataset.p;b.classList.add("sel");sendAction({t:"vote",target:myVote});
-}));
-function netTimer(at){
-  if(nTick)clearInterval(nTick);
-  const upd=()=>{const left=Math.max(0,120-Math.floor((Date.now()-at)/1000));$("nClock").textContent=fmt(left);if(left<=0&&nTick){clearInterval(nTick);nTick=null;}};
-  upd();nTick=setInterval(upd,500);
 }
 
-/* start */
-try{load();renderPlayers();}catch(e){crash("Nie udało się wczytać zapisanych graczy.");}
+function startNetGame() {
+    if (netPlayers.length < 3) return alert('Minimum 3 graczy!');
+    
+    const location = LOCATIONS[rnd(LOCATIONS.length)];
+    netPlayers.forEach(p => { p.imp = false; p.alive = true; });
+    
+    let impsAssigned = 0;
+    while(impsAssigned < netImps) {
+        let r = rnd(netPlayers.length);
+        if (!netPlayers[r].imp) { netPlayers[r].imp = true; impsAssigned++; }
+    }
+
+    netGame = { location };
+    
+    // Wyślij dane do wszystkich (w tym indywidualne role)
+    netPlayers.forEach(p => {
+        const msg = { type: 'START', location: location, players: netPlayers, me: p };
+        if (p.id === myId) handleClientData(msg); // Host wysyła do siebie
+        else if (connections[p.id]) connections[p.id].send(msg);
+    });
+}
+
+/* --- LOGIKA KLIENTA --- */
+function handleClientData(data) {
+    if (data.type === 'LOBBY_UPDATE') {
+        netPlayers = data.players;
+        netImps = data.imps;
+        updateNetLobby();
+        nav('scr-net-lobby');
+    } else if (data.type === 'START') {
+        netGame = { location: data.location };
+        netPlayers = data.players;
+        const me = data.me;
+        
+        $('netRole').innerText = me.imp ? 'Jesteś Impostorem!' : 'Jesteś w drużynie';
+        $('netRole').className = me.imp ? 'imp-red' : 'crew-blue';
+        $('netLocation').innerText = me.imp ? 'Zgadnij lokację' : netGame.location;
+        
+        renderNetAlive();
+        nav('scr-net-card');
+    } else if (data.type === 'STATE') {
+        netPlayers = data.players;
+        if (data.state === 'GAME') {
+            renderNetAlive();
+            nav('scr-net-game');
+        } else if (data.state === 'VOTE') {
+            openNetVoteUI();
+        } else if (data.state === 'END') {
+            endGame(data.result, netGame.location, netPlayers, 'net');
+        }
+    }
+}
+
+function renderNetAlive() {
+    $('netAliveList').innerHTML = netPlayers.map(p => 
+        `<li style="opacity: ${p.alive ? '1' : '0.4'}">
+        <div><span class="color-dot" style="background:${p.color}"></span><span style="text-decoration: ${p.alive ? 'none' : 'line-through'}">${p.name}</span></div>
+        </li>`
+    ).join('');
+}
+
+function startNetVote() {
+    netVotes = {};
+    const msg = { type: 'STATE', state: 'VOTE', players: netPlayers };
+    if (isHost) {
+        broadcast(msg);
+        handleClientData(msg);
+    } else {
+        hostConn.send({ type: 'VOTE_REQUEST' }); // opcjonalnie, tu upraszczamy że każdy ma przycisk, ale żeby zachować sync:
+    }
+}
+
+// Nadpisanie przycisku głosowania dla non-hosta w prosty sposób
+document.querySelector('#scr-net-game button[style*="background:#ff9800"]').onclick = () => {
+    if (isHost) startNetVote();
+    else alert('Zgłoś chęć głosowania na żywo do Hosta - tylko on odpala ekran na wszystkich telefonach.');
+};
+
+function openNetVoteUI() {
+    nav('scr-net-vote');
+    $('netVoteStatus').innerText = 'Wybierz, kogo wyrzucić:';
+    $('netVoteGrid').innerHTML = netPlayers.filter(p => p.alive).map(p => 
+        `<button id="nvbtn-${p.id}" onclick="castNetVote('${p.id}')"><span class="color-dot" style="background:${p.color}"></span>${p.name}</button>`
+    ).join('');
+}
+
+function castNetVote(targetId) {
+    document.querySelectorAll('#netVoteGrid button').forEach(b => b.disabled = true);
+    $('netVoteStatus').innerText = 'Głos oddany. Czekaj na resztę...';
+    
+    if (isHost) {
+        netVotes[myId] = targetId;
+        checkNetVotes();
+    } else {
+        hostConn.send({ type: 'VOTE', target: targetId });
+    }
+}
+
+function checkNetVotes() {
+    const aliveCount = netPlayers.filter(p => p.alive).length;
+    if (Object.keys(netVotes).length >= aliveCount) {
+        // Liczenie głosów
+        let counts = {};
+        Object.values(netVotes).forEach(t => counts[t] = (counts[t] || 0) + 1);
+        
+        let max = 0, targetId = null;
+        Object.entries(counts).forEach(([t, c]) => {
+            if (c > max) { max = c; targetId = t; }
+        });
+        
+        const p = netPlayers.find(x => x.id === targetId);
+        if (p) p.alive = false;
+        
+        const aliveImps = netPlayers.filter(x => x.alive && x.imp).length;
+        const aliveCrew = netPlayers.filter(x => x.alive && !x.imp).length;
+        
+        let msg = null;
+        if (aliveImps === 0) msg = { type: 'STATE', state: 'END', result: 'Obywatele wygrywają!', players: netPlayers };
+        else if (aliveImps >= aliveCrew) msg = { type: 'STATE', state: 'END', result: 'Impostorzy wygrywają!', players: netPlayers };
+        else msg = { type: 'STATE', state: 'GAME', players: netPlayers };
+        
+        alert(`Wyrzucono: ${p.name}!`);
+        broadcast(msg);
+        handleClientData(msg);
+        netVotes = {};
+    }
+}
+
+/* =========================================================================
+   EKRAN KOŃCOWY WSPÓLNY
+========================================================================= */
+let currentMode = '';
+function endGame(resultText, location, playersArr, mode) {
+    currentMode = mode;
+    nav('scr-end');
+    $('endResult').innerText = resultText;
+    $('endResult').className = resultText.includes('Impostorzy') ? 'imp-red' : 'crew-blue';$('endLocation').innerText = location;
+    
+    $('endPlayerRoles').innerHTML = playersArr.map(p => 
+        `<li>
+            <div><span class="color-dot" style="background:${p.color}"></span>${p.name}</div>
+            <div class="${p.imp ? 'imp-red' : 'crew-blue'}">${p.imp ? 'Impostor' : 'Niewinny'}</div>
+        </li>`
+    ).join('');
+    
+    $('endReturnBtn').style.display = (mode === 'loc' || isHost) ? 'block' : 'none';
+    if(mode === 'net' && !isHost) {
+        let span = document.createElement('p');
+        span.innerText = "Oczekiwanie na hosta...";
+        span.style.textAlign = 'center';
+        $('scr-end').appendChild(span);
+    }
+}
+
+function returnToLobby() {
+    if (currentMode === 'loc') {
+        nav('scr-local-setup');
+    } else {
+        const msg = { type: 'LOBBY_UPDATE', players: netPlayers, imps: netImps };
+        broadcast(msg);
+        handleClientData(msg);
+    }
+}
 </script>
 </body>
 </html>
