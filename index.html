@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Szpieg / Impostor</title>
-    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <!-- Zamiast awaryjnego PeerJS, używamy stabilnych WebSocketów (MQTT) -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root { --bg: #1a1a2e; --panel: #16213e; --acc: #e94560; --text: #fff; --ok: #4caf50; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -16,7 +17,7 @@
         button:hover { filter: brightness(1.1); }
         button:disabled { background: #555; cursor: not-allowed; }
         .btn-alt { background: var(--panel); border: 2px solid var(--acc); }
-        input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 8px; border: none; background: #0f172a; color: white; font-size: 16px; }
+        input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 8px; border: none; background: #0f172a; color: white; font-size: 16px; text-align: center; }
         .card { background: var(--panel); padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: center; }
         ul.list { list-style: none; }
         ul.list li { display: flex; justify-content: space-between; align-items: center; background: #0f172a; padding: 10px 15px; margin-bottom: 10px; border-radius: 8px; }
@@ -24,7 +25,7 @@
         .imp-red { color: #ff4757; font-weight: bold; }
         .crew-blue { color: #1e90ff; font-weight: bold; }
         .grid-btn { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .log { background: #000; color: #0f0; padding: 10px; font-family: monospace; font-size: 12px; height: 150px; overflow-y: auto; border-radius: 8px; text-align: left; margin-top: 10px;}
+        .log { background: #000; color: #0f0; padding: 10px; font-family: monospace; font-size: 12px; height: 120px; overflow-y: auto; border-radius: 8px; text-align: left; margin-top: 10px;}
         #timer { font-size: 48px; text-align: center; font-weight: bold; margin: 20px 0; color: var(--acc); }
     </style>
 </head>
@@ -35,31 +36,31 @@
         <h1>🕵️‍♂️ Tajniacy / Impostor</h1>
         <p style="text-align:center; margin-bottom:30px;">Wykryj szpiega lub ukryj się w tłumie!</p>
         <button onclick="nav('scr-local-setup')">📱 Tryb Lokalny (1 Telefon)</button>
-        <button onclick="nav('scr-net-join')">🌐 Tryb Sieciowy (Wiele urządzeń)</button>
+        <button onclick="nav('scr-net-join')">🌐 Tryb Sieciowy (Każdy ma telefon)</button>
     </div>
 
     <!-- LOKALNY: USTAWIENIA -->
     <div id="scr-local-setup" class="screen">
         <h2>Ustawienia Lokalne</h2>
         <div class="card">
-            <input type="text" id="locName" placeholder="Imię gracza" onkeypress="if(event.key==='Enter') addLocalPlayer()">
+            <input type="text" id="locName" placeholder="Wpisz imię i wciśnij Enter" onkeypress="if(event.key==='Enter') addLocalPlayer()">
             <button onclick="addLocalPlayer()">Dodaj Gracza</button>
         </div>
         <ul id="locPlayerList" class="list"></ul>
         <div class="card grid-btn" style="align-items:center;">
-            <span>Liczba Impostorów: <strong id="locImpCount">1</strong></span>
-            <div>
-                <button onclick="changeImp('loc', -1)" style="width:40px; margin:0;">-</button>
-                <button onclick="changeImp('loc', 1)" style="width:40px; margin:0;">+</button>
+            <span>Impostorzy: <strong id="locImpCount" style="font-size:20px; color:var(--acc);">1</strong></span>
+            <div style="display:flex; gap:10px;">
+                <button onclick="changeImp('loc', -1)" style="margin:0;">-</button>
+                <button onclick="changeImp('loc', 1)" style="margin:0;">+</button>
             </div>
         </div>
-        <button onclick="startLocalGame()">Rozpocznij Grę</button>
+        <button onclick="startLocalGame()" style="background:var(--ok);">Rozpocznij Grę</button>
         <button class="btn-alt" onclick="nav('scr-home')">Wróć</button>
     </div>
 
     <!-- LOKALNY: PRZEKAZYWANIE KARTY -->
     <div id="scr-local-pass" class="screen">
-        <h2 id="passTitle">Gracz 1</h2>
+        <h2 id="passTitle">Kolej gracza...</h2>
         <div class="card" id="passCard" style="display:none; padding:40px 20px;">
             <h3 id="passRole">Rola</h3>
             <p id="passLocation" style="font-size:24px; margin-top:10px;"></p>
@@ -67,9 +68,9 @@
         <button id="passBtn" onclick="revealLocalCard()">Pokaż moją kartę</button>
     </div>
 
-    <!-- WSPÓLNY: GRA / DYSKUSJA (LOKALNIE) -->
+    <!-- WSPÓLNY: GRA (LOKALNIE) -->
     <div id="scr-local-game" class="screen">
-        <h2>Dyskusja</h2>
+        <h2>Czas na Dyskusję!</h2>
         <div id="timer">02:00</div>
         <div class="grid-btn">
             <button onclick="toggleTimer()">Start / Pauza</button>
@@ -77,53 +78,53 @@
         </div>
         <h3 style="margin-top:20px;">Żywi Gracze:</h3>
         <ul id="locAliveList" class="list"></ul>
-        <button onclick="startLocalVote()" style="background:#ff9800; margin-top:30px;">Zarządzaj Głosowanie</button>
+        <button onclick="startLocalVote()" style="background:#ff9800; margin-top:30px;">Kto jest szpiegiem? (Głosuj)</button>
     </div>
 
     <!-- WSPÓLNY: GŁOSOWANIE LOKALNE -->
     <div id="scr-local-vote" class="screen">
         <h2>Kogo wyrzucić?</h2>
         <div id="locVoteGrid" class="grid-btn"></div>
-        <button class="btn-alt" onclick="nav('scr-local-game')" style="margin-top:20px;">Anuluj</button>
+        <button class="btn-alt" onclick="nav('scr-local-game')" style="margin-top:20px;">Anuluj głosowanie</button>
     </div>
 
-    <!-- SIECIOWY: DOŁĄCZANIE -->
+    <!-- SIECIOWY: DOŁĄCZANIE (WEBSOCKETS) -->
     <div id="scr-net-join" class="screen">
         <h2>Tryb Sieciowy</h2>
         <div class="card">
-            <input type="text" id="netName" placeholder="Twoje imię">
-            <hr style="border-color:#333; margin: 15px 0;">
-            <button onclick="createNetGame()" style="background:var(--ok);">Stwórz nowy pokój</button>
-            <hr style="border-color:#333; margin: 15px 0;">
-            <input type="text" id="netCode" placeholder="Kod pokoju (np. AB12)" style="text-transform:uppercase;" maxlength="4">
+            <input type="text" id="netName" placeholder="Twoje imię w grze">
+            <hr style="border-color:#333; margin: 20px 0;">
+            <button onclick="createNetGame()" style="background:var(--ok);">Stwórz nowy pokój (Jako Host)</button>
+            <hr style="border-color:#333; margin: 20px 0;">
+            <input type="text" id="netCode" placeholder="Kod pokoju (np. AB12)" style="text-transform:uppercase; font-weight:bold; font-size:20px; letter-spacing:3px;" maxlength="4">
             <button onclick="joinNetGame()">Dołącz do pokoju</button>
         </div>
         <div id="netStatus" class="log" style="display:none;"></div>
-        <button class="btn-alt" onclick="nav('scr-home')">Wróć</button>
+        <button class="btn-alt" onclick="nav('scr-home')">Wróć do Menu</button>
     </div>
 
     <!-- SIECIOWY: LOBBY -->
     <div id="scr-net-lobby" class="screen">
-        <h2>Pokój: <span id="lobbyCodeText" style="color:var(--acc);"></span></h2>
+        <h2>Pokój: <span id="lobbyCodeText" style="color:var(--acc); letter-spacing:2px; font-size:28px;"></span></h2>
         <div class="card">
-            <h3>Gracze:</h3>
+            <h3>Lista Graczy:</h3>
             <ul id="netPlayerList" class="list"></ul>
         </div>
         <div id="hostControls" style="display:none;">
             <div class="card grid-btn" style="align-items:center;">
-                <span>Impostorzy: <strong id="netImpCount">1</strong></span>
-                <div>
-                    <button onclick="changeImp('net', -1)" style="width:40px; margin:0;">-</button>
-                    <button onclick="changeImp('net', 1)" style="width:40px; margin:0;">+</button>
+                <span>Impostorzy: <strong id="netImpCount" style="font-size:20px; color:var(--acc);">1</strong></span>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="changeImp('net', -1)" style="margin:0;">-</button>
+                    <button onclick="changeImp('net', 1)" style="margin:0;">+</button>
                 </div>
             </div>
-            <button onclick="startNetGame()">Rozpocznij Grę</button>
+            <button onclick="startNetGame()" style="background:var(--ok);">Rozpocznij Grę</button>
         </div>
-        <p id="waitText" style="text-align:center; color:#aaa;"></p>
-        <button class="btn-alt" onclick="disconnectNet()">Wyjdź</button>
+        <p id="waitText" style="text-align:center; color:#aaa; margin-top:20px;"></p>
+        <button class="btn-alt" onclick="disconnectNet()">Wyjdź z pokoju</button>
     </div>
 
-    <!-- SIECIOWY: TWOJA KARTA -->
+    <!-- SIECIOWY: KARTA GRACZA -->
     <div id="scr-net-card" class="screen">
         <h2>Twoja Tożsamość</h2>
         <div class="card" style="padding:40px 20px;">
@@ -133,44 +134,53 @@
         <button onclick="nav('scr-net-game')">Przejdź do gry</button>
     </div>
 
-    <!-- SIECIOWY: GRA -->
+    <!-- SIECIOWY: EKRAN GRY -->
     <div id="scr-net-game" class="screen">
-        <h2>Gra Trwa</h2>
-        <button class="btn-alt" onclick="nav('scr-net-card')" style="margin-bottom:20px;">Podejrzyj swoją kartę</button>
+        <h2>Rozmowa i Śledztwo</h2>
+        <button class="btn-alt" onclick="nav('scr-net-card')" style="margin-bottom:20px;">Podejrzyj swoją rolę</button>
         <h3>Żywi Gracze:</h3>
         <ul id="netAliveList" class="list"></ul>
-        <button onclick="startNetVote()" style="background:#ff9800; margin-top:30px;">Zwołaj Głosowanie</button>
+        <!-- Tylko host może wywołać oficjalne głosowanie na ekranach wszystkich -->
+        <button id="netCallVoteBtn" style="background:#ff9800; margin-top:30px; display:none;" onclick="startNetVote()">Zarządź Głosowanie (Host)</button>
+        <p id="netWaitVoteText" style="text-align:center; color:#aaa; margin-top:20px;"></p>
     </div>
 
     <!-- SIECIOWY: GŁOSOWANIE -->
     <div id="scr-net-vote" class="screen">
-        <h2>Głosowanie</h2>
-        <p style="text-align:center; margin-bottom:15px;" id="netVoteStatus">Wybierz, kogo wyrzucić:</p>
+        <h2>Kogo podejrzewasz?</h2>
+        <p style="text-align:center; margin-bottom:15px; color:var(--acc);" id="netVoteStatus">Zaznacz osobę do wyrzucenia:</p>
         <div id="netVoteGrid" class="grid-btn"></div>
     </div>
 
-    <!-- PODSUMOWANIE (Lokalne i Sieciowe) -->
+    <!-- PODSUMOWANIE -->
     <div id="scr-end" class="screen">
-        <h2 id="endResult" style="font-size:32px;">Zwycięstwo!</h2>
+        <h2 id="endResult" style="font-size:32px;">Koniec!</h2>
         <div class="card">
-            <p style="margin-bottom:15px; color:#aaa;">Prawidłowa lokacja:</p>
+            <p style="margin-bottom:5px; color:#aaa;">Prawidłowa lokacja:</p>
             <h3 id="endLocation" style="color:white; margin-bottom:20px;"></h3>
             <ul id="endPlayerRoles" class="list"></ul>
         </div>
-        <button onclick="returnToLobby()" id="endReturnBtn">Nowa Runda</button>
+        <button onclick="returnToLobby()" id="endReturnBtn">Zagraj ponownie</button>
+        <button class="btn-alt" onclick="location.reload()" style="margin-top:10px;">Zakończ i wróć do menu</button>
     </div>
 
 <script>
-/* --- DANE GRY --- */
+/* ================= DANE I FUNKCJE POMOCNICZE ================= */
 const LOCATIONS = [
     "Statek Kosmiczny", "Baza Wojskowa", "Łódź Podwodna", "Szkoła", "Szpital",
     "Restauracja", "Stacja Polarna", "Komisariat Policji", "Kino", "Kasyno",
-    "Pociąg Pasażerski", "Samolot", "Więzienie", "Bank", "Supermarket"
+    "Pociąg", "Samolot", "Więzienie", "Bank", "Supermarket", "Teatr", "Cyrk"
 ];
-const COLORS = ['#ff4d4d','#ffaf40','#fffa65','#32ff7e','#18dcff','#7d5fff'];
-const GAME_PREFIX = "tajniacy-app-v1-"; // Unikalny prefiks PeerJS
+const COLORS = ['#ff4d4d','#ffaf40','#fffa65','#32ff7e','#18dcff','#7d5fff','#ff9ff3','#feca57'];
 
-/* --- STAN LOKALNY --- */
+const $ = id => document.getElementById(id);
+function nav(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    $(screenId).classList.add('active');
+}
+function rnd(max) { return Math.floor(Math.random() * max); }
+
+/* ================= TRYB LOKALNY (1 TELEFON) ================= */
 let locPlayers = [];
 let locImps = 1;
 let locGame = null;
@@ -178,35 +188,6 @@ let passIndex = 0;
 let timerInt = null;
 let timerSec = 120;
 
-/* --- STAN SIECIOWY --- */
-let peer = null;
-let connections = {}; // Pule połączeń dla hosta
-let hostConn = null; // Połączenie klienta z hostem
-let isHost = false;
-let myId = '';
-let roomCode = '';
-let netPlayers = [];
-let netImps = 1;
-let netGame = null;
-let netVotes = {};
-
-/* --- NARZĘDZIA --- */
-const $ = id => document.getElementById(id);
-function nav(screenId) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    $(screenId).classList.add('active');
-}
-function rnd(max) { return Math.floor(Math.random() * max); }
-function log(msg) {
-    const el = $('netStatus');
-    el.style.display = 'block';
-    el.innerHTML += `<div>> ${msg}</div>`;
-    el.scrollTop = el.scrollHeight;
-}
-
-/* =========================================================================
-   TRYB LOKALNY
-========================================================================= */
 function addLocalPlayer() {
     const name = $('locName').value.trim();
     if (!name) return;
@@ -219,7 +200,7 @@ function addLocalPlayer() {
 function renderLocPlayers() {
     $('locPlayerList').innerHTML = locPlayers.map((p, i) => 
         `<li><div><span class="color-dot" style="background:${p.color}"></span>${p.name}</div>
-        <button style="width:auto; padding:5px 10px; margin:0;" onclick="locPlayers.splice(${i},1); renderLocPlayers()">X</button></li>`
+        <button style="width:auto; padding:5px 15px; margin:0; background:#ff4757;" onclick="locPlayers.splice(${i},1); renderLocPlayers()">X</button></li>`
     ).join('');
 }
 
@@ -232,21 +213,19 @@ function changeImp(mode, val) {
     } else {
         netImps = Math.max(1, Math.min(max, netImps + val));
         $('netImpCount').innerText = netImps;
-        broadcast({ type: 'LOBBY_UPDATE', players: netPlayers, imps: netImps });
+        if(isHost) hostBroadcast({ type: 'LOBBY_UPDATE', players: netPlayers, imps: netImps });
     }
 }
 
 function startLocalGame() {
-    if (locPlayers.length < 3) return alert('Potrzeba minimum 3 graczy!');
-    
-    // Losowanie lokacji i ról
+    if (locPlayers.length < 3) return alert('Dodaj przynajmniej 3 osoby!');
     const location = LOCATIONS[rnd(LOCATIONS.length)];
     locPlayers.forEach(p => { p.imp = false; p.alive = true; });
     
-    let impsAssigned = 0;
-    while(impsAssigned < locImps) {
+    let assigned = 0;
+    while(assigned < locImps) {
         let r = rnd(locPlayers.length);
-        if (!locPlayers[r].imp) { locPlayers[r].imp = true; impsAssigned++; }
+        if (!locPlayers[r].imp) { locPlayers[r].imp = true; assigned++; }
     }
 
     locGame = { location };
@@ -256,8 +235,8 @@ function startLocalGame() {
 
 function showLocalPass() {
     nav('scr-local-pass');
-    $('passCard').style.display = 'none';$('passBtn').innerText = 'Pokaż moją kartę';
-    $('passTitle').innerText = `Kolej gracza: ${locPlayers[passIndex].name}`;
+    $('passCard').style.display = 'none';$('passBtn').innerText = 'Odkryj moją kartę';
+    $('passTitle').innerText = `Telefon do rąk: ${locPlayers[passIndex].name}`;
 }
 
 let cardRevealed = false;
@@ -266,24 +245,15 @@ function revealLocalCard() {
     if (!cardRevealed) {
         $('passCard').style.display = 'block';$('passRole').innerText = p.imp ? 'Jesteś Impostorem!' : 'Jesteś w drużynie';
         $('passRole').className = p.imp ? 'imp-red' : 'crew-blue';
-        $('passLocation').innerText = p.imp ? 'Zgadnij lokację' : locGame.location;
-        $('passBtn').innerText = 'Schowaj kartę';
+        $('passLocation').innerText = p.imp ? 'Zgadnij gdzie jesteśmy' : locGame.location;
+        $('passBtn').innerText = 'Schowaj kartę i podaj dalej';
         cardRevealed = true;
     } else {
         cardRevealed = false;
         passIndex++;
-        if (passIndex < locPlayers.length) {
-            showLocalPass();
-        } else {
-            startLocalDiscussion();
-        }
+        if (passIndex < locPlayers.length) showLocalPass();
+        else { nav('scr-local-game'); resetTimer(); renderLocAlive(); }
     }
-}
-
-function startLocalDiscussion() {
-    nav('scr-local-game');
-    resetTimer();
-    renderLocAlive();
 }
 
 function renderLocAlive() {
@@ -294,26 +264,24 @@ function renderLocAlive() {
     ).join('');
 }
 
-/* TIMER */
 function updateTimerUI() {
     const m = Math.floor(timerSec / 60).toString().padStart(2, '0');
     const s = (timerSec % 60).toString().padStart(2, '0');
     $('timer').innerText = `${m}:${s}`;
 }
+
 function toggleTimer() {
     if (timerInt) { clearInterval(timerInt); timerInt = null; }
     else {
         timerInt = setInterval(() => {
             if (timerSec > 0) { timerSec--; updateTimerUI(); }
-            else { clearInterval(timerInt); timerInt = null; alert('Koniec czasu!'); }
+            else { clearInterval(timerInt); timerInt = null; alert('Koniec czasu dyskusji!'); }
         }, 1000);
     }
 }
 function resetTimer() {
     if (timerInt) clearInterval(timerInt);
-    timerInt = null;
-    timerSec = 120;
-    updateTimerUI();
+    timerInt = null; timerSec = 120; updateTimerUI();
 }
 
 function startLocalVote() {
@@ -326,52 +294,54 @@ function startLocalVote() {
 function executeLocalVote(name) {
     const p = locPlayers.find(x => x.name === name);
     p.alive = false;
-    alert(`${p.name} został wyrzucony! Był: ${p.imp ? 'Impostorem' : 'Niewinnym'}.`);
+    alert(`Wyrzucono: ${p.name}\nTożsamość: ${p.imp ? 'IMPOSTOR' : 'NIEWINNY'}`);
     
     const aliveImps = locPlayers.filter(x => x.alive && x.imp).length;
     const aliveCrew = locPlayers.filter(x => x.alive && !x.imp).length;
     
     if (aliveImps === 0) endGame('Obywatele wygrywają!', locGame.location, locPlayers, 'loc');
     else if (aliveImps >= aliveCrew) endGame('Impostorzy wygrywają!', locGame.location, locPlayers, 'loc');
-    else startLocalDiscussion();
+    else { nav('scr-local-game'); renderLocAlive(); }
 }
 
-/* =========================================================================
-   TRYB SIECIOWY (WebRTC za pomocą publicznych serwerów STUN)
-========================================================================= */
-const peerConfig = {
-    config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
-};
+/* ================= TRYB SIECIOWY (WebSockets / MQTT) ================= */
+// Używamy darmowego brokera MQTT, co eliminuje problemy z zablokowanymi portami u operatorów komórkowych.
+const MQTT_BROKER = 'wss://broker.emqx.io:8083/mqtt';
+const TOPIC_PREFIX = 'tajniacy_room_pl_'; 
+
+let client = null;
+let roomTopic = '';
+let myId = '';
+let isHost = false;
+let roomCode = '';
+let netPlayers = [];
+let netImps = 1;
+let netGame = null;
+let netVotes = {};
+
+function sysLog(msg) {
+    const el = $('netStatus');
+    el.style.display = 'block';
+    el.innerHTML += `<div>> ${msg}</div>`;
+    el.scrollTop = el.scrollHeight;
+}
 
 function createNetGame() {
     const name = $('netName').value.trim();
-    if (!name) return alert('Wpisz imię!');
+    if (!name) return alert('Wpisz swoje imię!');
     
     isHost = true;
     roomCode = Math.random().toString(36).substring(2,6).toUpperCase();
-    myId = GAME_PREFIX + roomCode;
+    myId = 'host_' + Math.random().toString(36).substring(2,9);
+    roomTopic = TOPIC_PREFIX + roomCode;
     
-    log(`Tworzenie pokoju: ${roomCode}...`);
-    peer = new Peer(myId, peerConfig);
-    
-    peer.on('open', (id) => {
-        log(`Serwer utworzony! Kod: ${roomCode}`);
+    sysLog(`Łączenie z serwerem gry...`);
+    connectMQTT(name, () => {
+        sysLog(`Stworzono pokój: ${roomCode}`);
         netPlayers = [{ id: myId, name: name, color: COLORS[0], host: true, alive: true, imp: false }];
         updateNetLobby();
         nav('scr-net-lobby');
     });
-
-    peer.on('connection', (conn) => {
-        conn.on('data', (data) => handleHostData(conn, data));
-        conn.on('close', () => {
-            netPlayers = netPlayers.filter(p => p.id !== conn.peer);
-            delete connections[conn.peer];
-            broadcast({ type: 'LOBBY_UPDATE', players: netPlayers, imps: netImps });
-            updateNetLobby();
-        });
-    });
-
-    peer.on('error', (err) => log('Błąd: ' + err.type));
 }
 
 function joinNetGame() {
@@ -380,50 +350,96 @@ function joinNetGame() {
     if (!name || roomCode.length !== 4) return alert('Wpisz imię i 4-znakowy kod!');
     
     isHost = false;
-    log(`Łączenie z ${roomCode}...`);
-    peer = new Peer(peerConfig);
+    myId = 'client_' + Math.random().toString(36).substring(2,9);
+    roomTopic = TOPIC_PREFIX + roomCode;
     
-    peer.on('open', (id) => {
-        myId = id;
-        hostConn = peer.connect(GAME_PREFIX + roomCode, { reliable: true });
-        
-        hostConn.on('open', () => {
-            log('Połączono! Dołączanie...');
-            hostConn.send({ type: 'JOIN', name: name });
-        });
-        
-        hostConn.on('data', handleClientData);
-        hostConn.on('close', () => { alert('Rozłączono z hostem.'); nav('scr-home'); });
+    sysLog(`Szukanie pokoju: ${roomCode}...`);
+    connectMQTT(name, () => {
+        sysLog(`Połączono! Wchodzenie do pokoju...`);
+        // Wysyłamy prośbę o dołączenie do Hosta
+        client.publish(roomTopic, JSON.stringify({ type: 'JOIN', id: myId, name: name }));
     });
+}
+
+function connectMQTT(playerName, onSuccess) {
+    if (client) client.end();
     
-    peer.on('error', (err) => log('Błąd: ' + err.type));
+    client = mqtt.connect(MQTT_BROKER);
+    
+    client.on('connect', () => {
+        client.subscribe(roomTopic);
+        onSuccess();
+    });
+
+    client.on('message', (topic, message) => {
+        try {
+            const data = JSON.parse(message.toString());
+            handleNetworkMessage(data);
+        } catch(e) { console.error(e); }
+    });
 }
 
 function disconnectNet() {
-    if (peer) peer.destroy();
+    if(client) client.end();
     nav('scr-home');
 }
 
-/* --- LOGIKA HOSTA --- */
-function handleHostData(conn, data) {
-    if (data.type === 'JOIN') {
-        const pColor = COLORS[netPlayers.length % COLORS.length];
-        netPlayers.push({ id: conn.peer, name: data.name, color: pColor, host: false, alive: true, imp: false });
-        connections[conn.peer] = conn;
-        broadcast({ type: 'LOBBY_UPDATE', players: netPlayers, imps: netImps });
+function hostBroadcast(data) {
+    if (client && isHost) client.publish(roomTopic, JSON.stringify(data));
+}
+
+/* --- LOGIKA ODBIERANIA WIADOMOŚCI Z SERWERA --- */
+function handleNetworkMessage(data) {
+    // 1. ZARZĄDZANIE PRZEZ HOSTA (Host jako serwer pokoju)
+    if (isHost) {
+        if (data.type === 'JOIN') {
+            const pColor = COLORS[netPlayers.length % COLORS.length];
+            netPlayers.push({ id: data.id, name: data.name, color: pColor, host: false, alive: true, imp: false });
+            hostBroadcast({ type: 'LOBBY_UPDATE', players: netPlayers, imps: netImps });
+            updateNetLobby();
+        }
+        else if (data.type === 'VOTE_CAST') {
+            netVotes[data.sender] = data.target;
+            checkNetVotes();
+        }
+    }
+
+    // 2. ODBIÓR DANYCH PRZEZ WSZYSTKICH GRACZY (w tym Hosta)
+    if (data.type === 'LOBBY_UPDATE') {
+        netPlayers = data.players;
+        netImps = data.imps;
         updateNetLobby();
-    } else if (data.type === 'VOTE') {
-        netVotes[conn.peer] = data.target;
-        checkNetVotes();
+        if(!isHost) nav('scr-net-lobby');
+    }
+    else if (data.type === 'START_GAME') {
+        netGame = { location: data.location };
+        netPlayers = data.players;
+        
+        // Znajdź moje dane na liście
+        const me = netPlayers.find(p => p.id === myId);
+        if(me) {
+            $('netRole').innerText = me.imp ? 'Jesteś Impostorem!' : 'Jesteś w drużynie';
+            $('netRole').className = me.imp ? 'imp-red' : 'crew-blue';
+            $('netLocation').innerText = me.imp ? 'Zgadnij lokację' : netGame.location;
+        }
+        
+        renderNetAlive();
+        nav('scr-net-card');
+    }
+    else if (data.type === 'STATE_CHANGE') {
+        netPlayers = data.players;
+        if (data.state === 'GAME') {
+            renderNetAlive();
+            nav('scr-net-game');
+        } else if (data.state === 'VOTE_START') {
+            openNetVoteUI();
+        } else if (data.state === 'END') {
+            endGame(data.result, netGame.location, netPlayers, 'net');
+        }
     }
 }
 
-function broadcast(msg) {
-    Object.values(connections).forEach(c => {
-        if (c && c.open) c.send(msg);
-    });
-}
-
+/* --- INTERFEJS I GRA SIECIOWA --- */
 function updateNetLobby() {
     $('lobbyCodeText').innerText = roomCode;
     $('netPlayerList').innerHTML = netPlayers.map(p => 
@@ -433,61 +449,23 @@ function updateNetLobby() {
     if (isHost) {
         $('hostControls').style.display = 'block';$('waitText').innerText = '';
     } else {
-        $('hostControls').style.display = 'none';$('waitText').innerText = 'Oczekiwanie na start gry przez Hosta...';
+        $('hostControls').style.display = 'none';$('waitText').innerText = 'Czekaj aż Host rozpocznie grę...';
     }
 }
 
 function startNetGame() {
-    if (netPlayers.length < 3) return alert('Minimum 3 graczy!');
+    if (netPlayers.length < 3) return alert('Potrzebnych jest minimum 3 graczy!');
     
     const location = LOCATIONS[rnd(LOCATIONS.length)];
     netPlayers.forEach(p => { p.imp = false; p.alive = true; });
     
-    let impsAssigned = 0;
-    while(impsAssigned < netImps) {
+    let assigned = 0;
+    while(assigned < netImps) {
         let r = rnd(netPlayers.length);
-        if (!netPlayers[r].imp) { netPlayers[r].imp = true; impsAssigned++; }
+        if (!netPlayers[r].imp) { netPlayers[r].imp = true; assigned++; }
     }
 
-    netGame = { location };
-    
-    // Wyślij dane do wszystkich (w tym indywidualne role)
-    netPlayers.forEach(p => {
-        const msg = { type: 'START', location: location, players: netPlayers, me: p };
-        if (p.id === myId) handleClientData(msg); // Host wysyła do siebie
-        else if (connections[p.id]) connections[p.id].send(msg);
-    });
-}
-
-/* --- LOGIKA KLIENTA --- */
-function handleClientData(data) {
-    if (data.type === 'LOBBY_UPDATE') {
-        netPlayers = data.players;
-        netImps = data.imps;
-        updateNetLobby();
-        nav('scr-net-lobby');
-    } else if (data.type === 'START') {
-        netGame = { location: data.location };
-        netPlayers = data.players;
-        const me = data.me;
-        
-        $('netRole').innerText = me.imp ? 'Jesteś Impostorem!' : 'Jesteś w drużynie';
-        $('netRole').className = me.imp ? 'imp-red' : 'crew-blue';
-        $('netLocation').innerText = me.imp ? 'Zgadnij lokację' : netGame.location;
-        
-        renderNetAlive();
-        nav('scr-net-card');
-    } else if (data.type === 'STATE') {
-        netPlayers = data.players;
-        if (data.state === 'GAME') {
-            renderNetAlive();
-            nav('scr-net-game');
-        } else if (data.state === 'VOTE') {
-            openNetVoteUI();
-        } else if (data.state === 'END') {
-            endGame(data.result, netGame.location, netPlayers, 'net');
-        }
-    }
+    hostBroadcast({ type: 'START_GAME', location: location, players: netPlayers });
 }
 
 function renderNetAlive() {
@@ -496,78 +474,68 @@ function renderNetAlive() {
         <div><span class="color-dot" style="background:${p.color}"></span><span style="text-decoration: ${p.alive ? 'none' : 'line-through'}">${p.name}</span></div>
         </li>`
     ).join('');
-}
-
-function startNetVote() {
-    netVotes = {};
-    const msg = { type: 'STATE', state: 'VOTE', players: netPlayers };
+    
     if (isHost) {
-        broadcast(msg);
-        handleClientData(msg);
+        $('netCallVoteBtn').style.display = 'block';$('netWaitVoteText').innerText = '';
     } else {
-        hostConn.send({ type: 'VOTE_REQUEST' }); // opcjonalnie, tu upraszczamy że każdy ma przycisk, ale żeby zachować sync:
+        $('netCallVoteBtn').style.display = 'none';$('netWaitVoteText').innerText = 'Zgłoś swoje podejrzenia Hostowi by odpalił głosowanie.';
     }
 }
 
-// Nadpisanie przycisku głosowania dla non-hosta w prosty sposób
-document.querySelector('#scr-net-game button[style*="background:#ff9800"]').onclick = () => {
-    if (isHost) startNetVote();
-    else alert('Zgłoś chęć głosowania na żywo do Hosta - tylko on odpala ekran na wszystkich telefonach.');
-};
+function startNetVote() {
+    if (isHost) {
+        netVotes = {};
+        hostBroadcast({ type: 'STATE_CHANGE', state: 'VOTE_START', players: netPlayers });
+    }
+}
 
 function openNetVoteUI() {
     nav('scr-net-vote');
-    $('netVoteStatus').innerText = 'Wybierz, kogo wyrzucić:';
+    $('netVoteStatus').innerText = 'Wybierz, kogo chcesz wyrzucić:';
     $('netVoteGrid').innerHTML = netPlayers.filter(p => p.alive).map(p => 
-        `<button id="nvbtn-${p.id}" onclick="castNetVote('${p.id}')"><span class="color-dot" style="background:${p.color}"></span>${p.name}</button>`
+        `<button id="vbtn-${p.id}" onclick="castNetVote('${p.id}')"><span class="color-dot" style="background:${p.color}"></span>${p.name}</button>`
     ).join('');
 }
 
 function castNetVote(targetId) {
+    // Blokujemy przyciski po oddaniu głosu
     document.querySelectorAll('#netVoteGrid button').forEach(b => b.disabled = true);
-    $('netVoteStatus').innerText = 'Głos oddany. Czekaj na resztę...';
+    $('netVoteStatus').innerText = 'Głos wysłany. Czekaj na resztę...';
     
-    if (isHost) {
-        netVotes[myId] = targetId;
-        checkNetVotes();
-    } else {
-        hostConn.send({ type: 'VOTE', target: targetId });
-    }
+    client.publish(roomTopic, JSON.stringify({ type: 'VOTE_CAST', sender: myId, target: targetId }));
 }
 
 function checkNetVotes() {
+    if (!isHost) return;
+    
     const aliveCount = netPlayers.filter(p => p.alive).length;
+    // Sprawdzamy czy wszyscy żyjący oddali głos
     if (Object.keys(netVotes).length >= aliveCount) {
-        // Liczenie głosów
         let counts = {};
         Object.values(netVotes).forEach(t => counts[t] = (counts[t] || 0) + 1);
         
         let max = 0, targetId = null;
-        Object.entries(counts).forEach(([t, c]) => {
-            if (c > max) { max = c; targetId = t; }
-        });
+        Object.entries(counts).forEach(([t, c]) => { if (c > max) { max = c; targetId = t; } });
         
-        const p = netPlayers.find(x => x.id === targetId);
-        if (p) p.alive = false;
+        const ejected = netPlayers.find(x => x.id === targetId);
+        if (ejected) ejected.alive = false;
         
         const aliveImps = netPlayers.filter(x => x.alive && x.imp).length;
         const aliveCrew = netPlayers.filter(x => x.alive && !x.imp).length;
         
-        let msg = null;
-        if (aliveImps === 0) msg = { type: 'STATE', state: 'END', result: 'Obywatele wygrywają!', players: netPlayers };
-        else if (aliveImps >= aliveCrew) msg = { type: 'STATE', state: 'END', result: 'Impostorzy wygrywają!', players: netPlayers };
-        else msg = { type: 'STATE', state: 'GAME', players: netPlayers };
+        alert(`Decyzją grupy wyrzucono: ${ejected.name}\nTożsamość: ${ejected.imp ? 'IMPOSTOR' : 'NIEWINNY'}`);
         
-        alert(`Wyrzucono: ${p.name}!`);
-        broadcast(msg);
-        handleClientData(msg);
-        netVotes = {};
+        if (aliveImps === 0) {
+            hostBroadcast({ type: 'STATE_CHANGE', state: 'END', result: 'Obywatele wygrywają!', players: netPlayers });
+        } else if (aliveImps >= aliveCrew) {
+            hostBroadcast({ type: 'STATE_CHANGE', state: 'END', result: 'Impostorzy wygrywają!', players: netPlayers });
+        } else {
+            hostBroadcast({ type: 'STATE_CHANGE', state: 'GAME', players: netPlayers });
+        }
     }
 }
 
-/* =========================================================================
-   EKRAN KOŃCOWY WSPÓLNY
-========================================================================= */
+/* ================= WSPÓLNY EKRAN ZAKOŃCZENIA ================= */
 let currentMode = '';
 function endGame(resultText, location, playersArr, mode) {
     currentMode = mode;
@@ -584,21 +552,13 @@ function endGame(resultText, location, playersArr, mode) {
     
     $('endReturnBtn').style.display = (mode === 'loc' || isHost) ? 'block' : 'none';
     if(mode === 'net' && !isHost) {
-        let span = document.createElement('p');
-        span.innerText = "Oczekiwanie na hosta...";
-        span.style.textAlign = 'center';
-        $('scr-end').appendChild(span);
+        $('endResult').innerHTML += `<div style="font-size:16px; color:#aaa; margin-top:10px;">Czekaj aż Host ustawi nową grę...</div>`;
     }
 }
 
 function returnToLobby() {
-    if (currentMode === 'loc') {
-        nav('scr-local-setup');
-    } else {
-        const msg = { type: 'LOBBY_UPDATE', players: netPlayers, imps: netImps };
-        broadcast(msg);
-        handleClientData(msg);
-    }
+    if (currentMode === 'loc') nav('scr-local-setup');
+    else if (isHost) hostBroadcast({ type: 'LOBBY_UPDATE', players: netPlayers, imps: netImps });
 }
 </script>
 </body>
