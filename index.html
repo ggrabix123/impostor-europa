@@ -3,137 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC P2P (Komputer - Telefon)</title>
-    <!-- Biblioteka PeerJS do automatycznej sygnalizacji -->
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <title>WebRTC Room Client</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 450px; margin: 20px auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-        input, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
-        button { background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:hover { background-color: #0056b3; }
-        .box { background: #f8f9fa; padding: 10px; border-radius: 4px; margin-bottom: 12px; word-break: break-all; }
-        #status { font-weight: bold; color: #dc3545; }
-        #status.online { color: #28a745; }
-        #chat { height: 160px; overflow-y: auto; border: 1px solid #ddd; padding: 8px; background: #fff; margin-bottom: 10px; border-radius: 4px; font-size: 14px; }
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { max-width: 500px; margin: 30px auto; padding: 20px; background: #f4f6f8; }
+        .card { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        h2 { margin-top: 0; color: #1a1a1a; font-size: 1.25rem; }
+        .input-group { margin-bottom: 12px; }
+        label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: #555; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
+        button { width: 100%; padding: 12px; background: #0066fe; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 8px; }
+        button:hover { background: #0052cc; }
+        #status-box { margin-top: 15px; padding: 10px; background: #eef2f5; border-radius: 6px; font-size: 0.9rem; word-break: break-all; }
+        .log { color: #555; font-size: 0.8rem; height: 120px; overflow-y: auto; background: #1e1e1e; color: #00ff66; padding: 10px; border-radius: 6px; font-family: monospace; margin-top: 15px; }
     </style>
 </head>
 <body>
 
-    <h2>Połączenie WebRTC P2P</h2>
+<div class="card">
+    <h2>WebRTC Connection Handler</h2>
     
-    <div class="box">
-        <strong>ID Twojego urządzenia:</strong>
-        <div id="my-id">Łączenie z chmurą...</div>
+    <div class="input-group">
+        <label>Adres serwera sygnalizacyjnego (WebSocket):</label>
+        <input type="text" id="ws-url" value="wss://twoj-serwer-sygnalizacji.pl">
     </div>
 
-    <div class="box">
-        <strong>Stan:</strong> <span id="status">Rozłączony</span>
+    <div class="input-group">
+        <label>ID Pokoju:</label>
+        <input type="text" id="room-id" value="TMH5">
     </div>
 
-    <hr>
+    <button onclick="app.connect()">Połącz z serwerem</button>
+    <button onclick="app.startAsHost()" style="background: #28a745;">Utwórz ofertę (Host)</button>
 
-    <h3>1. Połącz urządzenia</h3>
-    <input type="text" id="remote-id" placeholder="Wklej ID drugiego urządzenia">
-    <button onclick="connectToPeer()">Połącz</button>
+    <div id="status-box">Stan: Rozłączony</div>
+    <div id="log" class="log"></div>
+</div>
 
-    <hr>
+<script>
+class WebRTCApp {
+    constructor() {
+        this.socket = null;
+        this.peerConnection = null;
+        this.roomId = '';
+        this.iceCandidatesQueue = [];
 
-    <h3>2. Test przesyłania danych</h3>
-    <div id="chat"></div>
-    <input type="text" id="message-input" placeholder="Wpisz wiadomość...">
-    <button onclick="sendMessage()">Wyślij wiadomość</button>
+        // KONFIGURACJA WEBRTC
+        this.rtcConfig = {
+            iceCandidatePoolSize: 10, // Przyspiesza zbieranie kandydujących adresów IP
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                // Tu wklej swoje dane z darmowego konta Metered.ca jeśli łączenie z Hotspotu znowu zwolni:
+                /*
+                {
+                    urls: 'turn:TWOJA_DOMENA.metered.ca:443?transport=tcp',
+                    username: 'TWOJ_USERNAME',
+                    credential: 'TWOJE_HASLO'
+                }
+                */
+            ]
+        };
+    }
 
-    <script>
-        let peer = null;
-        let conn = null;
+    log(msg) {
+        const logEl = document.getElementById('log');
+        const time = new Date().toLocaleTimeString();
+        logEl.innerHTML += `[${time}] ${msg}<br>`;
+        logEl.scrollTop = logEl.scrollHeight;
+    }
 
-        // Pełna konfiguracja STUN/TURN omijająca blokady Hotspotów komórkowych
-        const peerConfig = {
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    {
-                        urls: [
-                            'turn:openrelay.metered.ca:80',
-                            'turn:openrelay.metered.ca:443',
-                            'turn:openrelay.metered.ca:443?transport=tcp'
-                        ],
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
-                    }
-                ]
+    updateStatus(status) {
+        document.getElementById('status-box').innerText = `Stan: ${status}`;
+    }
+
+    connect() {
+        const wsUrl = document.getElementById('ws-url').value;
+        this.roomId = document.getElementById('room-id').value;
+
+        this.log(`Łączenie z serwerem sygnalizacyjnym ${wsUrl}...`);
+        this.socket = new WebSocket(wsUrl);
+
+        this.socket.onopen = () => {
+            this.log(`Połączono z serwerem. Szukam pokoju ${this.roomId}…`);
+            this.updateStatus('Połączono z serwerem sygnalizacji');
+            this.initPeerConnection();
+            
+            // Dołączenie do pokoju na serwerze
+            this.sendSignal({ type: 'join', roomId: this.roomId });
+        };
+
+        this.socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            this.handleSignalMessage(data);
+        };
+
+        this.socket.onerror = (err) => this.log('❌ Błąd WebSocket!');
+        this.socket.onclose = () => this.updateStatus('Rozłączono z serwerem');
+    }
+
+    initPeerConnection() {
+        if (this.peerConnection) return;
+
+        this.peerConnection = new RTCPeerConnection(this.rtcConfig);
+
+        // Wysyłanie wygenerowanych kandydatów ICE do drugiego urządzenia
+        this.peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                this.sendSignal({
+                    type: 'candidate',
+                    roomId: this.roomId,
+                    candidate: event.candidate
+                });
             }
         };
 
-        function initPeer() {
-            peer = new Peer(peerConfig);
+        // Zmiana stanu ICE (Monitorowanie błędów)
+        this.peerConnection.oniceconnectionstatechange = () => {
+            const state = this.peerConnection.iceConnectionState;
+            this.log(`ICE (host): ${state}`);
+            this.updateStatus(`ICE: ${state}`);
 
-            peer.on('open', (id) => {
-                document.getElementById('my-id').innerText = id;
-            });
-
-            // Reakcja na połączenie przychodzące (Host)
-            peer.on('connection', (connection) => {
-                conn = connection;
-                bindEvents();
-            });
-
-            peer.on('error', (err) => {
-                logMessage('❌ Błąd sieci: ' + err.type);
-            });
-        }
-
-        function connectToPeer() {
-            const remoteId = document.getElementById('remote-id').value.trim();
-            if (!remoteId) {
-                alert('Wklej ID drugiego urządzenia!');
-                return;
+            if (state === 'connected' || state === 'completed') {
+                this.log('✅ SUKCES! Połączenie P2P gotowe.');
+            } else if (state === 'failed' || state === 'disconnected') {
+                this.log('⚠️ Przerwano połączenie ICE.');
             }
+        };
+    }
 
-            logMessage('Łączenie z urządzeniem: ' + remoteId);
-            conn = peer.connect(remoteId);
-            bindEvents();
+    async startAsHost() {
+        if (!this.peerConnection) this.initPeerConnection();
+
+        try {
+            const offer = await this.peerConnection.createOffer();
+            await this.peerConnection.setLocalDescription(offer);
+            this.log('Utworzono ofertę SDP (Host). Wysyłanie...');
+            
+            this.sendSignal({
+                type: 'offer',
+                roomId: this.roomId,
+                offer: offer
+            });
+        } catch (err) {
+            this.log('❌ Błąd tworzenia oferty: ' + err.message);
         }
+    }
 
-        function bindEvents() {
-            conn.on('open', () => {
-                const statusEl = document.getElementById('status');
-                statusEl.innerText = 'POŁĄCZONO';
-                statusEl.className = 'online';
-                logMessage('✅ Sukces! Kanał P2P otwarto.');
-            });
-
-            conn.on('data', (data) => {
-                logMessage('Odebrano: ' + data);
-            });
-
-            conn.on('close', () => {
-                const statusEl = document.getElementById('status');
-                statusEl.innerText = 'Rozłączono';
-                statusEl.className = '';
-                logMessage('⚠️ Połączenie zamknięte.');
-            });
+    async handleSignalMessage(data) {
+        switch (data.type) {
+            case 'offer':
+                this.log('Odebrano ofertę od Hosta. Przetwarzanie...');
+                await this.handleOffer(data.offer);
+                break;
+            case 'answer':
+                this.log('Odebrano odpowiedź (Answer). Przetwarzanie...');
+                await this.handleAnswer(data.answer);
+                break;
+            case 'candidate':
+                await this.handleCandidate(data.candidate);
+                break;
         }
+    }
 
-        function sendMessage() {
-            const input = document.getElementById('message-input');
-            const msg = input.value;
-            if (conn && conn.open) {
-                conn.send(msg);
-                logMessage('Wysłąno: ' + msg);
-                input.value = '';
-            } else {
-                alert('Najpierw nawiąż połączenie!');
+    async handleOffer(offer) {
+        if (!this.peerConnection) this.initPeerConnection();
+
+        await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        await this.flushCandidatesQueue(); // Pobierz kandydatów, którzy przyszli wcześniej
+
+        const answer = await this.peerConnection.createAnswer();
+        await this.peerConnection.setLocalDescription(answer);
+
+        this.sendSignal({
+            type: 'answer',
+            roomId: this.roomId,
+            answer: answer
+        });
+    }
+
+    async handleAnswer(answer) {
+        await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        await this.flushCandidatesQueue(); // Pobierz kandydatów, którzy przyszli wcześniej
+    }
+
+    // BUFOROWANIE KANDYDATÓW ICE (Rozwiązanie problemu odrzucania pakietów)
+    async handleCandidate(candidate) {
+        if (!this.peerConnection || !this.peerConnection.remoteDescription || !this.peerConnection.remoteDescription.type) {
+            this.log('Kandydat ICE przybył za wcześnie -> trafia do kolejki bufora.');
+            this.iceCandidatesQueue.push(candidate);
+        } else {
+            try {
+                await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (e) {
+                this.log('❌ Błąd dodawania kandydata ICE: ' + e.message);
             }
         }
+    }
 
-        function logMessage(msg) {
-            const chat = document.getElementById('chat');
-            chat.innerHTML += '<div>' + msg + '</div>';
-            chat.scrollTop = chat.scrollHeight;
+    async flushCandidatesQueue() {
+        while (this.iceCandidatesQueue.length > 0) {
+            const candidate = this.iceCandidatesQueue.shift();
+            try {
+                await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                this.log('Dodano zbuforowanego kandydata ICE.');
+            } catch (e) {
+                this.log('❌ Błąd zbuforowanego kandydata ICE: ' + e.message);
+            }
         }
+    }
 
-        initPeer();
-    </script>
+    sendSignal(msg) {
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify(msg));
+        }
+    }
+}
+
+const app = new WebRTCApp();
+</script>
 </body>
 </html>
