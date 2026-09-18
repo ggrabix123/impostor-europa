@@ -2,74 +2,138 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>WebRTC P2P Direct Connection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC P2P (Komputer - Telefon)</title>
+    <!-- Biblioteka PeerJS do automatycznej sygnalizacji -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 450px; margin: 20px auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        input, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #0056b3; }
+        .box { background: #f8f9fa; padding: 10px; border-radius: 4px; margin-bottom: 12px; word-break: break-all; }
+        #status { font-weight: bold; color: #dc3545; }
+        #status.online { color: #28a745; }
+        #chat { height: 160px; overflow-y: auto; border: 1px solid #ddd; padding: 8px; background: #fff; margin-bottom: 10px; border-radius: 4px; font-size: 14px; }
+    </style>
 </head>
 <body>
-    <h2>WebRTC Connection Test</h2>
-    <div id="status">Inicjalizacja...</div>
+
+    <h2>Połączenie WebRTC P2P</h2>
+    
+    <div class="box">
+        <strong>ID Twojego urządzenia:</strong>
+        <div id="my-id">Łączenie z chmurą...</div>
+    </div>
+
+    <div class="box">
+        <strong>Stan:</strong> <span id="status">Rozłączony</span>
+    </div>
+
+    <hr>
+
+    <h3>1. Połącz urządzenia</h3>
+    <input type="text" id="remote-id" placeholder="Wklej ID drugiego urządzenia">
+    <button onclick="connectToPeer()">Połącz</button>
+
+    <hr>
+
+    <h3>2. Test przesyłania danych</h3>
+    <div id="chat"></div>
+    <input type="text" id="message-input" placeholder="Wpisz wiadomość...">
+    <button onclick="sendMessage()">Wyślij wiadomość</button>
 
     <script>
-        // Konfiguracja WebRTC z darmowymi serwerami STUN i TURN (OpenRelay)
-        // Działa w sieciach komórkowych (LTE/5G/Hotspot) bez modyfikacji zapory
-        const rtcConfiguration = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                {
-                    urls: [
-                        'turn:openrelay.metered.ca:80',
-                        'turn:openrelay.metered.ca:443',
-                        'turn:openrelay.metered.ca:443?transport=tcp'
-                    ],
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                }
-            ],
-            iceTransportPolicy: 'all'
-        };
+        let peer = null;
+        let conn = null;
 
-        const peerConnection = new RTCPeerConnection(rtcConfiguration);
-
-        // Monitorowanie zmian stanu połączenia ICE
-        peerConnection.oniceconnectionstatechange = () => {
-            const state = peerConnection.iceConnectionState;
-            console.log(`[${new Date().toLocaleTimeString()}] ICE State:`, state);
-            document.getElementById('status').innerText = `Stan połączenia: ${state}`;
-
-            if (state === 'connected' || state === 'completed') {
-                console.log('Połączenie nawiązane pomyślnie!');
-            } else if (state === 'failed' || state === 'disconnected') {
-                console.warn('Połączenie przerwane. Reorganizacja kanału...');
+        // Pełna konfiguracja STUN/TURN omijająca blokady Hotspotów komórkowych
+        const peerConfig = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    {
+                        urls: [
+                            'turn:openrelay.metered.ca:80',
+                            'turn:openrelay.metered.ca:443',
+                            'turn:openrelay.metered.ca:443?transport=tcp'
+                        ],
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    }
+                ]
             }
         };
 
-        // Tworzenie DataChannel dla przesyłania danych
-        const dataChannel = peerConnection.createDataChannel("chat");
-        dataChannel.onopen = () => console.log("Kanał danych otwarty!");
-        dataChannel.onmessage = (event) => console.log("Odebrano wiadomość:", event.data);
+        function initPeer() {
+            peer = new Peer(peerConfig);
 
-        // Generowanie kandydatów ICE
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-                // Wyślij ten obiekt 'candidate' przez swój serwer sygnalizacyjny (np. WebSocket) do drugiego urządzenia
-                console.log("Wygenerowano kandydata ICE:", JSON.stringify(event.candidate));
+            peer.on('open', (id) => {
+                document.getElementById('my-id').innerText = id;
+            });
+
+            // Reakcja na połączenie przychodzące (Host)
+            peer.on('connection', (connection) => {
+                conn = connection;
+                bindEvents();
+            });
+
+            peer.on('error', (err) => {
+                logMessage('❌ Błąd sieci: ' + err.type);
+            });
+        }
+
+        function connectToPeer() {
+            const remoteId = document.getElementById('remote-id').value.trim();
+            if (!remoteId) {
+                alert('Wklej ID drugiego urządzenia!');
+                return;
             }
-        };
 
-        // Przykład inicjalizacji połączenia (Host)
-        async function startAsHost() {
-            try {
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-                // Wyślij 'offer' przez serwer sygnalizacyjny
-                console.log("Utworzono Offer:", JSON.stringify(offer));
-            } catch (error) {
-                console.error("Błąd podczas tworzenia offer:", error);
+            logMessage('Łączenie z urządzeniem: ' + remoteId);
+            conn = peer.connect(remoteId);
+            bindEvents();
+        }
+
+        function bindEvents() {
+            conn.on('open', () => {
+                const statusEl = document.getElementById('status');
+                statusEl.innerText = 'POŁĄCZONO';
+                statusEl.className = 'online';
+                logMessage('✅ Sukces! Kanał P2P otwarto.');
+            });
+
+            conn.on('data', (data) => {
+                logMessage('Odebrano: ' + data);
+            });
+
+            conn.on('close', () => {
+                const statusEl = document.getElementById('status');
+                statusEl.innerText = 'Rozłączono';
+                statusEl.className = '';
+                logMessage('⚠️ Połączenie zamknięte.');
+            });
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const msg = input.value;
+            if (conn && conn.open) {
+                conn.send(msg);
+                logMessage('Wysłąno: ' + msg);
+                input.value = '';
+            } else {
+                alert('Najpierw nawiąż połączenie!');
             }
         }
 
-        // Wywołanie startowe
-        startAsHost();
+        function logMessage(msg) {
+            const chat = document.getElementById('chat');
+            chat.innerHTML += '<div>' + msg + '</div>';
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        initPeer();
     </script>
 </body>
 </html>
