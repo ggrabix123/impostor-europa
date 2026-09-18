@@ -235,6 +235,22 @@ ul.players li .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;whit
     <input type="text" id="netCode" class="code" placeholder="KOD" maxlength="4" autocomplete="off" inputmode="latin">
     <div class="stack" style="margin-top:14px"><button class="btn big amber" id="netJoin">Dołącz</button></div>
   </div>
+  <div class="card">
+    <h3>Coś nie działa?</h3>
+    <div class="stack"><button class="btn ghost" id="netTest">Test sieci</button></div>
+    <details style="margin-top:12px">
+      <summary style="cursor:pointer;color:var(--amber);font-size:14px">Ustawienia zaawansowane</summary>
+      <p style="font-size:13px;color:var(--muted);font-weight:600;line-height:1.5;margin:10px 0 6px">
+        Adres serwera TURN (darmowe konto na metered.ca → TURN → skopiuj pełny link REST).
+        Bez tego połączenie Wi-Fi ⇄ dane komórkowe często się nie uda.
+      </p>
+      <input type="text" id="turnInput" placeholder="https://twojaapka.metered.live/api/v1/turn/credentials?apiKey=..." autocomplete="off" spellcheck="false">
+      <label style="display:flex;align-items:center;gap:10px;margin-top:12px;font-size:14px">
+        <input type="checkbox" id="relayChk" style="width:20px;height:20px;flex:0 0 auto">
+        <span>Zawsze przez TURN (gdy sieć blokuje połączenia bezpośrednie)</span>
+      </label>
+    </details>
+  </div>
   <button class="btn ghost" id="homeFromNet" style="width:100%">Wróć</button>
   <p class="err" id="netErr"></p>
 </section>
@@ -502,27 +518,78 @@ $("ejectNext").onclick=()=>{G.result?showEnd():startDiscussion();};
 function showEnd(){Music.mood("calm");$("endBox").innerHTML=endVerdict(G.result,G.word,G.country);
   $("endList").innerHTML=rolesListHTML(G.people);show("s-end");}
 
-/* ============ TRYB: WIELE TELEFONÓW (WebRTC / PeerJS HTTPS/STUN/TURN) ============ */
+/* ============ TRYB: WIELE URZĄDZEŃ (WebRTC / PeerJS) ============ */
 const PREFIX="impeu-2026-";
-const ICE_CONFIG={iceServers:[
+
+/* Serwer sygnalizacyjny. Jeśli postawisz własny PeerServer, dopisz go tutaj na początku listy. */
+const PEER_SERVERS=[
+  {host:"0.peerjs.com",port:443,path:"/",secure:true,key:"peerjs"}
+];
+
+/* STUN – wystarcza, gdy oba urządzenia są w tej samej sieci albo za "grzecznym" NAT-em. */
+const STUN=[
   {urls:"stun:stun.l.google.com:19302"},
   {urls:"stun:stun1.l.google.com:19302"},
   {urls:"stun:stun.cloudflare.com:3478"},
-  {urls:"turn:openrelay.metered.ca:80",username:"openrelayproject",credential:"openrelayproject"},
-  {urls:"turn:openrelay.metered.ca:443",username:"openrelayproject",credential:"openrelayproject"},
-  {urls:"turn:openrelay.metered.ca:443?transport=tcp",username:"openrelayproject",credential:"openrelayproject"}
-]};
+  {urls:"stun:stun.nextcloud.com:443"}
+];
+
+/* TURN – przekaźnik. Bez niego połączenie Wi-Fi <-> dane komórkowe często NIE zadziała.
+   Wklej w ustawieniach (ekran "Wiele urządzeń" -> Ustawienia zaawansowane) pełny adres REST
+   z darmowego konta metered.ca, np.:
+   https://twojaapka.metered.live/api/v1/turn/credentials?apiKey=xxxxxxxx
+   Albo wpisz na sztywno poniżej własny serwer coturn. */
+const TURN_FALLBACK=[];
+let TURN=[];
+let relayOnly=false;
+let turnLoaded=false;
+
+function lsGet(k){try{return localStorage.getItem(k)||"";}catch(e){return "";}}
+function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+
+function iceConfig(){
+  const servers=STUN.concat(TURN.length?TURN:TURN_FALLBACK);
+  const c={iceServers:servers,iceCandidatePoolSize:4,bundlePolicy:"max-bundle",rtcpMuxPolicy:"require"};
+  if(relayOnly&&servers.some(s=>/^turns?:/.test([].concat(s.urls)[0])))c.iceTransportPolicy="relay";
+  return c;
+}
+
+function loadTurn(force){
+  if(turnLoaded&&!force)return Promise.resolve();
+  const url=lsGet("impeu_turn").trim();
+  if(!/^https?:\/\//i.test(url)){
+    turnLoaded=true;
+    TURN=TURN_FALLBACK.slice();
+    connLog(TURN.length?"TURN: używam serwera wpisanego w kodzie.":"TURN: brak – działa tylko STUN. Połączenia między różnymi sieciami mogą się nie udać.");
+    return Promise.resolve();
+  }
+  connLog("Pobieram dane serwera TURN…");
+  const ctl=("AbortController" in window)?new AbortController():null;
+  const to=setTimeout(()=>{try{ctl&&ctl.abort();}catch(e){}},7000);
+  return fetch(url,ctl?{signal:ctl.signal}:{})
+    .then(r=>r.json())
+    .then(arr=>{
+      clearTimeout(to);
+      if(Array.isArray(arr)&&arr.length){TURN=arr;connLog("TURN gotowy ("+arr.length+" adresów).");}
+      else{TURN=TURN_FALLBACK.slice();connLog("TURN: serwer odpowiedział pustą listą.");}
+      turnLoaded=true;
+    })
+    .catch(e=>{
+      clearTimeout(to);
+      TURN=TURN_FALLBACK.slice();
+      turnLoaded=true;
+      connLog("TURN: nie udało się pobrać ("+(e&&e.name||"błąd")+"). Jadę na samym STUN.");
+    });
+}
 
 let pingInterval=null;
 function startPing(){
-  if(pingInterval) clearInterval(pingInterval);
-  pingInterval = setInterval(()=>{
-    if(room){
-      Object.values(conns).forEach(c=>{
-        if(c && c.open) { try{ c.send({t:"ping"}); }catch(e){} }
-      });
+  if(pingInterval)clearInterval(pingInterval);
+  pingInterval=setInterval(()=>{
+    if(room||conns.host){
+      Object.values(conns).forEach(c=>{if(c&&c.open){try{c.send({t:"ping"});}catch(e){}}});
     }
-  }, 15000);
+  },15000);
 }
 
 function connLog(msg){
@@ -532,36 +599,67 @@ function connLog(msg){
   el.scrollTop=el.scrollHeight;
 }
 function clearLog(){const el=$("connLog");if(el)el.textContent="";}
+
+/* Podgląd stanu ICE + automatyczny restart przy zerwaniu */
 function watchIce(conn,label){
   let tries=0;
-  const check=()=>{
-    try{
-      const pc=conn&&conn.peerConnection;
-      if(pc){
-        pc.addEventListener("iceconnectionstatechange",()=>{
-          connLog("ICE ("+label+"): "+pc.iceConnectionState);
-          if(pc.iceConnectionState==="failed"){
-            try{ pc.restartIce(); }catch(e){}
-          }
-        });
-        return;
-      }
-    }catch(e){}
-    if(++tries<40)setTimeout(check,250);
+  const attach=()=>{
+    const pc=conn&&conn.peerConnection;
+    if(!pc){if(++tries<60)setTimeout(attach,250);return;}
+    pc.addEventListener("iceconnectionstatechange",()=>{
+      connLog("ICE ("+label+"): "+pc.iceConnectionState);
+      if(pc.iceConnectionState==="connected"||pc.iceConnectionState==="completed")logPath(pc,label);
+      if(pc.iceConnectionState==="failed"){try{pc.restartIce();}catch(e){}}
+    });
   };
-  check();
+  attach();
 }
+/* Pokazuje, KTÓRĄ drogą poszło połączenie – to najważniejsza informacja diagnostyczna */
+function logPath(pc,label){
+  if(!pc||!pc.getStats)return;
+  setTimeout(()=>{
+    pc.getStats(null).then(st=>{
+      let pair=null;const cands={};
+      st.forEach(r=>{
+        if(r.type==="candidate-pair"&&(r.selected||(r.state==="succeeded"&&r.nominated)))pair=r;
+        if(r.type==="local-candidate"||r.type==="remote-candidate")cands[r.id]=r;
+      });
+      if(!pair)return;
+      const l=cands[pair.localCandidateId],r=cands[pair.remoteCandidateId];
+      const lt=l&&l.candidateType||"?",rt=r&&r.candidateType||"?";
+      connLog("Trasa ("+label+"): "+lt+" ⇄ "+rt+(lt==="relay"||rt==="relay"?" — przez TURN":(lt==="host"&&rt==="host"?" — lokalnie":" — bezpośrednio")));
+    }).catch(()=>{});
+  },1200);
+}
+
 let peer=null,isHost=false,conns={},myPid=null,room=null,myCode=null,lastState=null,netCi=-1,nFlipped=false,seenSent=false,myVote=null,nTick=null;
 
 function peerAvailable(){return typeof window.Peer==="function";}
 if(!peerAvailable()){
-  window.addEventListener("load",()=>{if(!peerAvailable())$("netNote").textContent="Brak internetu — działa tryb „Jeden telefon”. Gra na wielu telefonach wymaga połączenia z siecią.";});
+  window.addEventListener("load",()=>{if(!peerAvailable())$("netNote").textContent="Brak internetu — działa tryb „Jeden telefon”. Gra na wielu urządzeniach wymaga połączenia z siecią.";});
 }
+
+function peerOptions(id){
+  const o=Object.assign({},PEER_SERVERS[0],{debug:0,config:iceConfig(),pingInterval:5000});
+  return o;
+}
+
+/* Sprawdzenie środowiska – najczęstsza przyczyna „na telefonach działa, na komputerze nie” */
+function envCheck(){
+  const out=[];
+  if(location.protocol==="file:")out.push("Strona otwarta jako plik (file://). WebRTC nie zadziała — wrzuć plik na hosting HTTPS albo uruchom lokalny serwer.");
+  else if(location.protocol!=="https:"&&location.hostname!=="localhost"&&location.hostname!=="127.0.0.1")out.push("Strona działa po HTTP. Przeglądarki blokują WebRTC poza HTTPS — użyj adresu https://");
+  if(!window.isSecureContext)out.push("To nie jest „bezpieczny kontekst” — połączenia będą blokowane.");
+  if(!window.RTCPeerConnection)out.push("Ta przeglądarka nie obsługuje WebRTC.");
+  return out;
+}
+
 $("modeNet").onclick=()=>{
   if(!peerAvailable()){$("netNote").textContent="Nie udało się wczytać modułu połączeń. Sprawdź internet i odśwież stronę.";return;}
-  if(window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    $("netNote").textContent="UWAGA: Uruchamiasz stronę po HTTP! Do połączenia hotspot-Wi-Fi na telefonie absolutnie wymagany jest protokół HTTPS.";
-  }
+  const p=envCheck();
+  $("netNote").textContent=p.length?("UWAGA: "+p.join(" ")):"";
+  const ti=$("turnInput");if(ti)ti.value=lsGet("impeu_turn");
+  const rc=$("relayChk");if(rc)rc.checked=lsGet("impeu_relay")==="1";
   show("n-join");
 };
 $("homeFromNet").onclick=()=>show("s-home");
@@ -569,10 +667,16 @@ function netErr(m){$("netErr").textContent=m||"";}
 function newCode(){let s="";const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";for(let i=0;i<4;i++)s+=A[Math.floor(Math.random()*A.length)];return s;}
 function newPid(){return Math.random().toString(36).slice(2,10);}
 
+function readAdvanced(){
+  const ti=$("turnInput");if(ti)lsSet("impeu_turn",ti.value.trim());
+  const rc=$("relayChk");relayOnly=!!(rc&&rc.checked);lsSet("impeu_relay",relayOnly?"1":"0");
+  turnLoaded=false;
+}
+
 function netLeave(){
-  if(pingInterval) clearInterval(pingInterval);
+  if(pingInterval){clearInterval(pingInterval);pingInterval=null;}
   try{Object.values(conns).forEach(c=>{try{c.close();}catch(e){}});}catch(e){}
-  conns={};room=null;isHost=false;lastState=null;myVote=null;seenSent=false;
+  conns={};room=null;isHost=false;lastState=null;myVote=null;seenSent=false;myPid=null;
   if(nTick){clearInterval(nTick);nTick=null;}
   try{if(peer&&!peer.destroyed)peer.destroy();}catch(e){}
   peer=null;
@@ -584,54 +688,99 @@ $("lobbyList").addEventListener("click",safe(e=>{
   hostRemovePlayer(b.dataset.k);
 }));
 
+/* --- TEST SIECI --- */
+$("netTest").onclick=safe(()=>{readAdvanced();iceTest();});
+function iceTest(){
+  clearLog();$("connText").textContent="Test sieci…";show("n-conn");
+  envCheck().forEach(x=>connLog("! "+x));
+  connLog("Adres: "+location.protocol+"//"+location.hostname);
+  loadTurn(true).then(()=>{
+    let pc;
+    try{pc=new RTCPeerConnection({iceServers:STUN.concat(TURN.length?TURN:TURN_FALLBACK)});}
+    catch(e){connLog("Nie można utworzyć połączenia: "+e.message);return;}
+    const seen={host:0,srflx:0,prflx:0,relay:0};
+    try{pc.createDataChannel("t");}catch(e){}
+    pc.onicecandidate=e=>{
+      if(!e.candidate)return;
+      const parts=e.candidate.candidate.split(" ");
+      const idx=parts.indexOf("typ");
+      const t=e.candidate.type||(idx>=0?parts[idx+1]:null);
+      if(t&&seen[t]!=null)seen[t]++;
+    };
+    pc.createOffer().then(o=>pc.setLocalDescription(o)).catch(e=>connLog("Błąd oferty: "+e.message));
+    setTimeout(()=>{
+      try{pc.close();}catch(e){}
+      connLog("Kandydaci — lokalni: "+seen.host+" · publiczny IP (STUN): "+seen.srflx+" · przekaźnik (TURN): "+seen.relay);
+      if(seen.relay)connLog("OK: TURN działa. Połączenia między różnymi sieciami powinny się udać.");
+      else if(seen.srflx)connLog("UWAGA: brak TURN. Ta sama sieć Wi-Fi zadziała, ale Wi-Fi ⇄ dane komórkowe często nie. Dodaj klucz TURN.");
+      else connLog("ŹLE: brak nawet STUN. Sieć/firewall/VPN blokuje WebRTC albo strona nie działa po HTTPS.");
+    },8000);
+  });
+}
+
 /* --- HOST --- */
 $("netCreate").onclick=safe(function(){
   const name=$("netName").value.trim();if(!name){netErr("Wpisz imię.");return;}
+  const env=envCheck();
+  if(env.length){netErr(env[0]);return;}
+  readAdvanced();
   netErr("");$("connText").textContent="Zakładam pokój…";clearLog();show("n-conn");
   netLeave();isHost=true;myPid="host";myCode=newCode();
-  let tries=0;
-  const make=()=>{
-    connLog("Łączę się z serwerem sygnalizacyjnym (HTTPS)...");
-    peer=new Peer(PREFIX+myCode,{
-      debug:0,
-      config:ICE_CONFIG,
-      secure:true,
-      port:443
-    });
-    peer.on("open",()=>{
-      connLog("Połączono. Kod pokoju: "+myCode);
-      room={phase:"lobby",settings:{imposters:1,showCountry:true,impKnows:true},
-        players:[{pid:"host",name:name.slice(0,16),color:COLORS[0],alive:true,imp:false,seen:false,vote:null}],
-        round:null,eject:null,result:null,phaseAt:Date.now()};
-      startPing();
-      pushState();
-    });
-    peer.on("connection",conn=>{
-      connLog("Ktoś próbuje dołączyć…");
-      watchIce(conn,"gracz");
-      conn.on("open",()=>connLog("Kanał danych z graczem otwarty."));
-      conn.on("data",d=>{try{onHostData(conn,d);}catch(e){}});
-      conn.on("close",()=>{
-        const p=Object.keys(conns).find(k=>conns[k]===conn);
-        if(p){delete conns[p];if(room){room.players=room.players.filter(x=>x.pid!==p);
-          if(room.phase!=="lobby"&&room.players.length<2){room.phase="end";room.result=null;}
-          pushState();}}
+  loadTurn().then(()=>{
+    let tries=0;
+    const make=()=>{
+      connLog("Łączę się z serwerem sygnalizacyjnym…");
+      peer=new Peer(PREFIX+myCode,peerOptions());
+      let opened=false;
+      const guard=setTimeout(()=>{
+        if(opened)return;
+        connLog("Serwer sygnalizacyjny nie odpowiada (20 s).");
+        netErr("Serwer sygnalizacyjny nie odpowiada. Spróbuj ponownie albo zmień sieć.");
+        try{peer.destroy();}catch(e){}
+        show("n-join");
+      },20000);
+      peer.on("open",()=>{
+        opened=true;clearTimeout(guard);
+        connLog("Połączono. Kod pokoju: "+myCode);
+        room={phase:"lobby",settings:{imposters:1,showCountry:true,impKnows:true},
+          players:[{pid:"host",name:name.slice(0,16),color:COLORS[0],alive:true,imp:false,seen:false,vote:null}],
+          round:null,eject:null,result:null,phaseAt:Date.now()};
+        startPing();
+        pushState();
       });
-      conn.on("error",err=>connLog("Błąd połączenia z graczem: "+(err&&err.message||err)));
-    });
-    peer.on("error",e=>{
-      connLog("Błąd serwera: "+(e&&e.type||e));
-      if(e&&e.type==="unavailable-id"&&tries<5){tries++;myCode=newCode();try{peer.destroy();}catch(x){}make();return;}
-      netErr("Nie udało się założyć pokoju: "+(e&&e.type||"błąd sieci")+". Spróbuj ponownie.");show("n-join");
-    });
-    peer.on("disconnected",()=>{connLog("Rozłączono z serwerem, próbuję ponownie…");try{peer.reconnect();}catch(e){}});
-  };
-  make();
+      peer.on("connection",conn=>{
+        connLog("Ktoś próbuje dołączyć…");
+        watchIce(conn,"gracz");
+        const t=setTimeout(()=>{if(!conn.open)connLog("Gracz nie zestawił kanału w 20 s — pewnie brak TURN po jego stronie.");},20000);
+        conn.on("open",()=>{clearTimeout(t);connLog("Kanał danych z graczem otwarty.");});
+        conn.on("data",d=>{try{onHostData(conn,d);}catch(e){}});
+        conn.on("close",()=>{
+          const p=Object.keys(conns).find(k=>conns[k]===conn);
+          if(p){delete conns[p];if(room){room.players=room.players.filter(x=>x.pid!==p);
+            if(room.phase!=="lobby"&&room.players.length<2){room.phase="end";room.result=null;}
+            pushState();}}
+        });
+        conn.on("error",err=>connLog("Błąd połączenia z graczem: "+(err&&err.message||err)));
+      });
+      peer.on("error",e=>{
+        const type=e&&e.type||String(e);
+        connLog("Błąd serwera: "+type);
+        if(type==="unavailable-id"&&tries<5){tries++;myCode=newCode();try{peer.destroy();}catch(x){}make();return;}
+        if(type==="peer-unavailable"||type==="network")return; /* nie zamykaj pokoju z powodu jednego gracza */
+        clearTimeout(guard);
+        netErr("Nie udało się założyć pokoju: "+type+". Spróbuj ponownie.");show("n-join");
+      });
+      peer.on("disconnected",()=>{connLog("Rozłączono z serwerem, próbuję ponownie…");setTimeout(()=>{try{if(peer&&!peer.destroyed)peer.reconnect();}catch(e){}},1000);});
+    };
+    make();
+  });
 });
 function onHostData(conn,d){
   if(!room||!d||!d.t)return;
-  if(d.t==="ping") return; // Keepalive ping
+  if(d.t==="ping")return;
   if(d.t==="join"){
+    const already=Object.keys(conns).find(k=>conns[k]===conn);
+    if(already){conn.send({t:"welcome",pid:already});pushState();return;}
     if(room.phase!=="lobby"){conn.send({t:"kick",msg:"Gra już trwa — poczekaj na nową rundę."});return;}
     if(room.players.length>=15){conn.send({t:"kick",msg:"Pokój jest pełny."});return;}
     const pid=newPid();
@@ -732,7 +881,7 @@ function pushState(){
   if(!room)return;
   Object.keys(conns).forEach(pid=>{
     const s=stateFor(pid);
-    if(s){try{conns[pid].send({t:"state",s});}catch(e){}}
+    if(s&&conns[pid]&&conns[pid].open){try{conns[pid].send({t:"state",s});}catch(e){}}
   });
   renderNet(stateFor("host"));
 }
@@ -742,39 +891,71 @@ $("netJoin").onclick=safe(function(){
   const name=$("netName").value.trim();if(!name){netErr("Wpisz imię.");return;}
   const code=$("netCode").value.trim().toUpperCase();
   if(code.length!==4){netErr("Kod ma 4 znaki.");return;}
-  netErr("");$("connText").textContent="Łączę z pokojem "+code+"…";clearLog();show("n-conn");
+  const env=envCheck();
+  if(env.length){netErr(env[0]);return;}
+  readAdvanced();
+  netErr("");clearLog();show("n-conn");
   netLeave();isHost=false;myCode=code;
-  connLog("Łączę się z serwerem sygnalizacyjnym...");
-  peer=new Peer({
-    debug:0,
-    config:ICE_CONFIG,
-    secure:true,
-    port:443
-  });
-  const fail=m=>{connLog("BŁĄD: "+m);netErr(m);netLeave();show("n-join");};
-  const guard=setTimeout(()=>{if(!myPid||myPid==="host")fail("Nie udało się połączyć w 25 sekund. Log powyżej pokazuje, na czym stanęło.");},25000);
-  peer.on("open",()=>{
-    connLog("Połączono z serwerem. Szukam pokoju "+code+"…");
-    const conn=peer.connect(PREFIX+code,{reliable:true});
-    conns.host=conn;
-    watchIce(conn,"host");
-    conn.on("open",()=>{connLog("Kanał danych otwarty, wysyłam imię…");conn.send({t:"join",name:name.slice(0,16)});});
-    conn.on("data",d=>{
-      try{
-        if(d.t==="welcome"){clearTimeout(guard);connLog("Dołączono do pokoju.");myPid=d.pid;}
-        else if(d.t==="state"){clearTimeout(guard);renderNet(d.s);}
-        else if(d.t==="kick"){clearTimeout(guard);fail(d.msg||"Prowadzący zamknął pokój.");}
-        else if(d.t==="removed"){clearTimeout(guard);fail("Prowadzący usunął Cię z pokoju.");}
-      }catch(e){}
-    });
-    conn.on("close",()=>{if(room!==null||lastState){netLeave();netErr("Połączenie z prowadzącym przerwane.");show("n-join");}});
-    conn.on("error",err=>{connLog("Błąd kanału: "+(err&&err.message||err));fail("Błąd połączenia. Spróbuj ponownie.");});
-  });
-  peer.on("error",e=>{
-    clearTimeout(guard);
-    connLog("Błąd: "+(e&&e.type||e));
-    if(e&&e.type==="peer-unavailable")fail("Nie ma pokoju o kodzie "+code+".");
-    else fail("Problem z siecią ("+(e&&e.type||"?")+"). Spróbuj ponownie.");
+  const userRelay=relayOnly;
+  loadTurn().then(()=>{
+    let round=0;
+    const hasTurn=(TURN.length||TURN_FALLBACK.length)>0;
+
+    const attempt=()=>{
+      round++;
+      relayOnly=userRelay||(round>=2&&hasTurn);
+      $("connText").textContent="Łączę z pokojem "+code+"…"+(round>1?" (próba "+round+")":"");
+      connLog(round===1?"Łączę się z serwerem sygnalizacyjnym…":(relayOnly?"Ponawiam wyłącznie przez TURN…":"Ponawiam próbę…"));
+      try{if(peer&&!peer.destroyed)peer.destroy();}catch(e){}
+      peer=new Peer(peerOptions());
+
+      let done=false;
+      const finish=()=>{done=true;};
+      const retryOrFail=m=>{
+        if(done)return;
+        done=true;
+        try{if(peer&&!peer.destroyed)peer.destroy();}catch(e){}
+        if(round<3){setTimeout(attempt,600);return;}
+        connLog("BŁĄD: "+m);
+        netErr(m+(hasTurn?"":" Prawdopodobna przyczyna: brak serwera TURN — dodaj klucz w ustawieniach zaawansowanych."));
+        netLeave();show("n-join");
+      };
+
+      const guard=setTimeout(()=>retryOrFail("Nie udało się połączyć w 22 sekundy."),22000);
+
+      peer.on("open",()=>{
+        connLog("Połączono z serwerem. Szukam pokoju "+code+"…");
+        const conn=peer.connect(PREFIX+code,{reliable:true,serialization:"json",metadata:{v:2}});
+        conns.host=conn;
+        watchIce(conn,"host");
+        conn.on("open",()=>{connLog("Kanał danych otwarty, wysyłam imię…");try{conn.send({t:"join",name:name.slice(0,16)});}catch(e){}});
+        conn.on("data",d=>{
+          try{
+            if(d.t==="welcome"){clearTimeout(guard);finish();connLog("Dołączono do pokoju.");myPid=d.pid;startPing();}
+            else if(d.t==="state"){clearTimeout(guard);finish();renderNet(d.s);}
+            else if(d.t==="kick"){clearTimeout(guard);done=true;netLeave();netErr(d.msg||"Prowadzący zamknął pokój.");show("n-join");}
+            else if(d.t==="removed"){clearTimeout(guard);done=true;netLeave();netErr("Prowadzący usunął Cię z pokoju.");show("n-join");}
+          }catch(e){}
+        });
+        conn.on("close",()=>{
+          if(done&&myPid){netLeave();netErr("Połączenie z prowadzącym przerwane.");show("n-join");}
+        });
+        conn.on("error",err=>connLog("Błąd kanału: "+(err&&err.message||err)));
+      });
+      peer.on("disconnected",()=>{if(done){connLog("Rozłączono z serwerem, próbuję ponownie…");setTimeout(()=>{try{if(peer&&!peer.destroyed)peer.reconnect();}catch(e){}},1000);}});
+      peer.on("error",e=>{
+        const type=e&&e.type||String(e);
+        connLog("Błąd: "+type);
+        if(done)return;
+        clearTimeout(guard);
+        if(type==="peer-unavailable"){
+          if(round<3){retryOrFail("");return;}
+          done=true;netErr("Nie ma pokoju o kodzie "+code+". Sprawdź kod i czy prowadzący ma otwarty ekran gry.");netLeave();show("n-join");return;
+        }
+        retryOrFail("Problem z siecią ("+type+").");
+      });
+    };
+    attempt();
   });
 });
 function sendAction(d){
@@ -885,6 +1066,8 @@ function netTimer(at){
 }
 
 /* start */
+try{const ti=$("turnInput");if(ti)ti.value=lsGet("impeu_turn");
+    const rc=$("relayChk");if(rc){rc.checked=lsGet("impeu_relay")==="1";relayOnly=rc.checked;}}catch(e){}
 try{load();renderPlayers();}catch(e){crash("Nie udało się wczytać zapisanych graczy.");}
 </script>
 </body>
