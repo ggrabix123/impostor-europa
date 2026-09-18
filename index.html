@@ -241,7 +241,9 @@ ul.players li .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;whit
 
 <!-- NET CONNECTING -->
 <section class="screen" id="n-conn">
-  <div class="card"><div class="waitbig"><div class="spin"></div><p id="connText">Łączę…</p></div></div>
+  <div class="card"><div class="waitbig"><div class="spin"></div><p id="connText">Łączę…</p></div>
+    <div id="connLog" style="text-align:left;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--muted);background:#0C1234;border-radius:12px;padding:10px;margin-top:6px;max-height:170px;overflow-y:auto;white-space:pre-wrap;line-height:1.5"></div>
+  </div>
   <button class="btn ghost" id="connCancel" style="width:100%">Anuluj</button>
 </section>
 
@@ -505,10 +507,29 @@ const PREFIX="impeu-2026-";
 const ICE_CONFIG={iceServers:[
   {urls:"stun:stun.l.google.com:19302"},
   {urls:"stun:stun1.l.google.com:19302"},
+  {urls:"stun:stun.cloudflare.com:3478"},
   {urls:"turn:openrelay.metered.ca:80",username:"openrelayproject",credential:"openrelayproject"},
   {urls:"turn:openrelay.metered.ca:443",username:"openrelayproject",credential:"openrelayproject"},
   {urls:"turn:openrelay.metered.ca:443?transport=tcp",username:"openrelayproject",credential:"openrelayproject"}
 ]};
+function connLog(msg){
+  const el=$("connLog");if(!el)return;
+  const t=new Date().toTimeString().slice(0,8);
+  el.textContent+=(el.textContent?"\n":"")+"["+t+"] "+msg;
+  el.scrollTop=el.scrollHeight;
+}
+function clearLog(){const el=$("connLog");if(el)el.textContent="";}
+function watchIce(conn,label){
+  let tries=0;
+  const check=()=>{
+    try{
+      const pc=conn&&conn.peerConnection;
+      if(pc){pc.addEventListener("iceconnectionstatechange",()=>connLog("ICE ("+label+"): "+pc.iceConnectionState));return;}
+    }catch(e){}
+    if(++tries<40)setTimeout(check,250);
+  };
+  check();
+}
 let peer=null,isHost=false,conns={},myPid=null,room=null,myCode=null,lastState=null,netCi=-1,nFlipped=false,seenSent=false,myVote=null,nTick=null;
 
 function peerAvailable(){return typeof window.Peer==="function";}
@@ -533,22 +554,31 @@ function netLeave(){
 }
 $("netLeave").onclick=$("nLeave2").onclick=()=>{netLeave();show("s-home");};
 $("connCancel").onclick=()=>{netLeave();show("n-join");};
+$("lobbyList").addEventListener("click",safe(e=>{
+  const b=e.target.closest(".kill");if(!b||!isHost)return;
+  hostRemovePlayer(b.dataset.k);
+}));
 
 /* --- HOST --- */
 $("netCreate").onclick=safe(function(){
   const name=$("netName").value.trim();if(!name){netErr("Wpisz imię.");return;}
-  netErr("");$("connText").textContent="Zakładam pokój…";show("n-conn");
+  netErr("");$("connText").textContent="Zakładam pokój…";clearLog();show("n-conn");
   netLeave();isHost=true;myPid="host";myCode=newCode();
   let tries=0;
   const make=()=>{
-    peer=new Peer(PREFIX+myCode,{debug:0,config:ICE_CONFIG});
+    connLog("Łączę się z serwerem sygnalizacyjnym…");
+    peer=new Peer(PREFIX+myCode,{debug:0,config:ICE_CONFIG,secure:true});
     peer.on("open",()=>{
+      connLog("Połączono. Kod pokoju: "+myCode);
       room={phase:"lobby",settings:{imposters:1,showCountry:true,impKnows:true},
         players:[{pid:"host",name:name.slice(0,16),color:COLORS[0],alive:true,imp:false,seen:false,vote:null}],
         round:null,eject:null,result:null,phaseAt:Date.now()};
       pushState();
     });
     peer.on("connection",conn=>{
+      connLog("Ktoś próbuje dołączyć…");
+      watchIce(conn,"gracz");
+      conn.on("open",()=>connLog("Kanał danych z graczem otwarty."));
       conn.on("data",d=>{try{onHostData(conn,d);}catch(e){}});
       conn.on("close",()=>{
         const p=Object.keys(conns).find(k=>conns[k]===conn);
@@ -556,13 +586,14 @@ $("netCreate").onclick=safe(function(){
           if(room.phase!=="lobby"&&room.players.length<2){room.phase="end";room.result=null;}
           pushState();}}
       });
-      conn.on("error",()=>{});
+      conn.on("error",err=>connLog("Błąd połączenia z graczem: "+(err&&err.message||err)));
     });
     peer.on("error",e=>{
+      connLog("Błąd serwera: "+(e&&e.type||e));
       if(e&&e.type==="unavailable-id"&&tries<5){tries++;myCode=newCode();try{peer.destroy();}catch(x){}make();return;}
       netErr("Nie udało się założyć pokoju: "+(e&&e.type||"błąd sieci")+". Spróbuj ponownie.");show("n-join");
     });
-    peer.on("disconnected",()=>{try{peer.reconnect();}catch(e){}});
+    peer.on("disconnected",()=>{connLog("Rozłączono z serwerem, próbuję ponownie…");try{peer.reconnect();}catch(e){}});
   };
   make();
 });
@@ -656,6 +687,15 @@ function stateFor(pid){
   }
   return s;
 }
+function hostRemovePlayer(pid){
+  if(!isHost||!room||room.phase!=="lobby"||!pid||pid==="host")return;
+  const conn=conns[pid];
+  if(conn){try{conn.send({t:"removed"});}catch(e){}
+    setTimeout(()=>{try{conn.close();}catch(e){}},250);}
+  delete conns[pid];
+  room.players=room.players.filter(x=>x.pid!==pid);
+  pushState();
+}
 function pushState(){
   if(!room)return;
   Object.keys(conns).forEach(pid=>{
@@ -670,27 +710,32 @@ $("netJoin").onclick=safe(function(){
   const name=$("netName").value.trim();if(!name){netErr("Wpisz imię.");return;}
   const code=$("netCode").value.trim().toUpperCase();
   if(code.length!==4){netErr("Kod ma 4 znaki.");return;}
-  netErr("");$("connText").textContent="Łączę z pokojem "+code+"…";show("n-conn");
+  netErr("");$("connText").textContent="Łączę z pokojem "+code+"…";clearLog();show("n-conn");
   netLeave();isHost=false;myCode=code;
-  peer=new Peer({debug:0,config:ICE_CONFIG});
-  const fail=m=>{netErr(m);netLeave();show("n-join");};
-  const guard=setTimeout(()=>{if(!myPid||myPid==="host")fail("Nie udało się połączyć w 25 sekund. Sprawdź kod, internet na obu telefonach i spróbuj ponownie.");},25000);
+  connLog("Łączę się z serwerem sygnalizacyjnym…");
+  peer=new Peer({debug:0,config:ICE_CONFIG,secure:true});
+  const fail=m=>{connLog("BŁĄD: "+m);netErr(m);netLeave();show("n-join");};
+  const guard=setTimeout(()=>{if(!myPid||myPid==="host")fail("Nie udało się połączyć w 25 sekund. Log powyżej pokazuje, na czym stanęło — prześlij go, jeśli problem wraca.");},25000);
   peer.on("open",()=>{
+    connLog("Połączono z serwerem. Szukam pokoju "+code+"…");
     const conn=peer.connect(PREFIX+code,{reliable:true});
     conns.host=conn;
-    conn.on("open",()=>conn.send({t:"join",name:name.slice(0,16)}));
+    watchIce(conn,"host");
+    conn.on("open",()=>{connLog("Kanał danych otwarty, wysyłam imię…");conn.send({t:"join",name:name.slice(0,16)});});
     conn.on("data",d=>{
       try{
-        if(d.t==="welcome"){clearTimeout(guard);myPid=d.pid;}
+        if(d.t==="welcome"){clearTimeout(guard);connLog("Dołączono do pokoju.");myPid=d.pid;}
         else if(d.t==="state"){clearTimeout(guard);renderNet(d.s);}
         else if(d.t==="kick"){clearTimeout(guard);fail(d.msg||"Prowadzący zamknął pokój.");}
+        else if(d.t==="removed"){clearTimeout(guard);fail("Prowadzący usunął Cię z pokoju.");}
       }catch(e){}
     });
     conn.on("close",()=>{if(room!==null||lastState){netLeave();netErr("Połączenie z prowadzącym przerwane.");show("n-join");}});
-    conn.on("error",()=>fail("Błąd połączenia. Spróbuj ponownie."));
+    conn.on("error",err=>{connLog("Błąd kanału: "+(err&&err.message||err));fail("Błąd połączenia. Spróbuj ponownie.");});
   });
   peer.on("error",e=>{
     clearTimeout(guard);
+    connLog("Błąd: "+(e&&e.type||e));
     if(e&&e.type==="peer-unavailable")fail("Nie ma pokoju o kodzie "+code+".");
     else fail("Problem z siecią ("+(e&&e.type||"?")+"). Spróbuj ponownie.");
   });
@@ -718,7 +763,10 @@ function renderNet(s){
 
   if(s.phase==="lobby"){
     $("lobbyCode").textContent=s.code;
-    $("lobbyList").innerHTML=list(x=>x.host?'<span class="tag w">prowadzi</span>':'');
+    $("lobbyList").innerHTML=s.players.map(x=>{
+      let extra=x.host?'<span class="tag w">prowadzi</span>':(host?'<button class="kill" data-k="'+x.pid+'" aria-label="Usuń '+esc(x.name)+'">×</button>':'');
+      return '<li>'+crewSVG(x.color)+'<span class="nm">'+esc(x.name)+(x.pid===s.you.pid?" (Ty)":"")+'</span>'+extra+'</li>';
+    }).join("");
     $("hostBox").style.display=host?"":"none";
     $("nImpVal").textContent=s.settings.imposters;
     $("netStart").disabled=s.players.length<3;
