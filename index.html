@@ -149,7 +149,7 @@ ul.players li .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;whit
       <button class="btn big" id="modeLocal">Jeden telefon</button>
       <button class="btn big amber" id="modeNet">Gra na wielu telefonach</button>
     </div>
-    <p class="hintline" id="netNote">Tryb na wielu telefonach wymaga internetu. Jedna osoba zakłada pokój, reszta wpisuje kod.</p>
+    <p class="hintline" id="netNote">Tryb na wielu telefonach wymaga połączenia HTTPS/z sieci. Jedna osoba zakłada pokój, reszta wpisuje kod.</p>
   </div>
 </section>
 
@@ -379,7 +379,7 @@ function cardHTML(country,canSee,isImp,word,hint){
               :head+'<div class="word">'+esc(word)+'</div>';}
 function countryBanner(country,visible){
   return visible&&country?'<div class="flag">'+country.f+'</div><h2>'+esc(country.c)+'</h2><div class="hello">'+esc(country.hi)+' — tak witają się po '+esc(country.lang)+'</div>'
-    :'<div class="flag">🌍</div><h2>Kraj ukryty</h2><div class="hello">Nikt oficjalnie nie wie, skąd jest hasło</div>';}
+    :'<div class="flag">🌍</div><h2>Kraj ukryty</h2><div class="hello">Nikt officially nie wie, skąd jest hasło</div>';}
 function rolesListHTML(l){return l.map(p=>'<li class="'+(p.alive?'':'dead')+'">'+crewSVG(p.color)+'<span class="nm">'+esc(p.name)+'</span><span class="tag '+(p.imp?'i':'c')+'">'+(p.imp?'impostor':'gracz')+'</span></li>').join("");}
 function endVerdict(result,word,country){
   const t=result==="crew"?["🎉","var(--crew)","Wygrywają gracze!"]:result==="imp"?["👾","var(--impostor)","Wygrywają impostorzy!"]:["🃏","var(--amber)","Koniec rundy"];
@@ -502,7 +502,7 @@ $("ejectNext").onclick=()=>{G.result?showEnd():startDiscussion();};
 function showEnd(){Music.mood("calm");$("endBox").innerHTML=endVerdict(G.result,G.word,G.country);
   $("endList").innerHTML=rolesListHTML(G.people);show("s-end");}
 
-/* ============ TRYB: WIELE TELEFONÓW (WebRTC / PeerJS) ============ */
+/* ============ TRYB: WIELE TELEFONÓW (WebRTC / PeerJS HTTPS/STUN/TURN) ============ */
 const PREFIX="impeu-2026-";
 const ICE_CONFIG={iceServers:[
   {urls:"stun:stun.l.google.com:19302"},
@@ -512,6 +512,19 @@ const ICE_CONFIG={iceServers:[
   {urls:"turn:openrelay.metered.ca:443",username:"openrelayproject",credential:"openrelayproject"},
   {urls:"turn:openrelay.metered.ca:443?transport=tcp",username:"openrelayproject",credential:"openrelayproject"}
 ]};
+
+let pingInterval=null;
+function startPing(){
+  if(pingInterval) clearInterval(pingInterval);
+  pingInterval = setInterval(()=>{
+    if(room){
+      Object.values(conns).forEach(c=>{
+        if(c && c.open) { try{ c.send({t:"ping"}); }catch(e){} }
+      });
+    }
+  }, 15000);
+}
+
 function connLog(msg){
   const el=$("connLog");if(!el)return;
   const t=new Date().toTimeString().slice(0,8);
@@ -524,7 +537,15 @@ function watchIce(conn,label){
   const check=()=>{
     try{
       const pc=conn&&conn.peerConnection;
-      if(pc){pc.addEventListener("iceconnectionstatechange",()=>connLog("ICE ("+label+"): "+pc.iceConnectionState));return;}
+      if(pc){
+        pc.addEventListener("iceconnectionstatechange",()=>{
+          connLog("ICE ("+label+"): "+pc.iceConnectionState);
+          if(pc.iceConnectionState==="failed"){
+            try{ pc.restartIce(); }catch(e){}
+          }
+        });
+        return;
+      }
     }catch(e){}
     if(++tries<40)setTimeout(check,250);
   };
@@ -538,6 +559,9 @@ if(!peerAvailable()){
 }
 $("modeNet").onclick=()=>{
   if(!peerAvailable()){$("netNote").textContent="Nie udało się wczytać modułu połączeń. Sprawdź internet i odśwież stronę.";return;}
+  if(window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    $("netNote").textContent="UWAGA: Uruchamiasz stronę po HTTP! Do połączenia hotspot-Wi-Fi na telefonie absolutnie wymagany jest protokół HTTPS.";
+  }
   show("n-join");
 };
 $("homeFromNet").onclick=()=>show("s-home");
@@ -546,6 +570,7 @@ function newCode(){let s="";const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";for(let i
 function newPid(){return Math.random().toString(36).slice(2,10);}
 
 function netLeave(){
+  if(pingInterval) clearInterval(pingInterval);
   try{Object.values(conns).forEach(c=>{try{c.close();}catch(e){}});}catch(e){}
   conns={};room=null;isHost=false;lastState=null;myVote=null;seenSent=false;
   if(nTick){clearInterval(nTick);nTick=null;}
@@ -566,13 +591,19 @@ $("netCreate").onclick=safe(function(){
   netLeave();isHost=true;myPid="host";myCode=newCode();
   let tries=0;
   const make=()=>{
-    connLog("Łączę się z serwerem sygnalizacyjnym…");
-    peer=new Peer(PREFIX+myCode,{debug:0,config:ICE_CONFIG,secure:true});
+    connLog("Łączę się z serwerem sygnalizacyjnym (HTTPS)...");
+    peer=new Peer(PREFIX+myCode,{
+      debug:0,
+      config:ICE_CONFIG,
+      secure:true,
+      port:443
+    });
     peer.on("open",()=>{
       connLog("Połączono. Kod pokoju: "+myCode);
       room={phase:"lobby",settings:{imposters:1,showCountry:true,impKnows:true},
         players:[{pid:"host",name:name.slice(0,16),color:COLORS[0],alive:true,imp:false,seen:false,vote:null}],
         round:null,eject:null,result:null,phaseAt:Date.now()};
+      startPing();
       pushState();
     });
     peer.on("connection",conn=>{
@@ -599,6 +630,7 @@ $("netCreate").onclick=safe(function(){
 });
 function onHostData(conn,d){
   if(!room||!d||!d.t)return;
+  if(d.t==="ping") return;
   if(d.t==="join"){
     if(room.phase!=="lobby"){conn.send({t:"kick",msg:"Gra już trwa — poczekaj na nową rundę."});return;}
     if(room.players.length>=15){conn.send({t:"kick",msg:"Pokój jest pełny."});return;}
@@ -712,10 +744,15 @@ $("netJoin").onclick=safe(function(){
   if(code.length!==4){netErr("Kod ma 4 znaki.");return;}
   netErr("");$("connText").textContent="Łączę z pokojem "+code+"…";clearLog();show("n-conn");
   netLeave();isHost=false;myCode=code;
-  connLog("Łączę się z serwerem sygnalizacyjnym…");
-  peer=new Peer({debug:0,config:ICE_CONFIG,secure:true});
+  connLog("Łączę się z serwerem sygnalizacyjnym...");
+  peer=new Peer({
+    debug:0,
+    config:ICE_CONFIG,
+    secure:true,
+    port:443
+  });
   const fail=m=>{connLog("BŁĄD: "+m);netErr(m);netLeave();show("n-join");};
-  const guard=setTimeout(()=>{if(!myPid||myPid==="host")fail("Nie udało się połączyć w 25 sekund. Log powyżej pokazuje, na czym stanęło — prześlij go, jeśli problem wraca.");},25000);
+  const guard=setTimeout(()=>{if(!myPid||myPid==="host")fail("Nie udało się połączyć w 25 sekund. Log powyżej pokazuje, na czym stanęło.");},25000);
   peer.on("open",()=>{
     connLog("Połączono z serwerem. Szukam pokoju "+code+"…");
     const conn=peer.connect(PREFIX+code,{reliable:true});
