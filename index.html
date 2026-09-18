@@ -241,8 +241,8 @@ ul.players li .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;whit
     <details style="margin-top:12px">
       <summary style="cursor:pointer;color:var(--amber);font-size:14px">Ustawienia zaawansowane</summary>
       <p style="font-size:13px;color:var(--muted);font-weight:600;line-height:1.5;margin:10px 0 6px">
-        Adres serwera TURN (darmowe konto na metered.ca → TURN → skopiuj pełny link REST).
-        Bez tego połączenie Wi-Fi ⇄ dane komórkowe często się nie uda.
+        Serwer TURN jest już wbudowany — nic nie trzeba tu wpisywać. To pole zostaw puste;
+        wypełnij tylko, jeśli chcesz użyć własnego serwera zamiast domyślnego.
       </p>
       <input type="text" id="turnInput" placeholder="https://twojaapka.metered.live/api/v1/turn/credentials?apiKey=..." autocomplete="off" spellcheck="false">
       <label style="display:flex;align-items:center;gap:10px;margin-top:12px;font-size:14px">
@@ -535,10 +535,9 @@ const STUN=[
 ];
 
 /* TURN – przekaźnik. Bez niego połączenie Wi-Fi <-> dane komórkowe często NIE zadziała.
-   Wklej w ustawieniach (ekran "Wiele urządzeń" -> Ustawienia zaawansowane) pełny adres REST
-   z darmowego konta metered.ca, np.:
-   https://twojaapka.metered.live/api/v1/turn/credentials?apiKey=xxxxxxxx
-   Albo wpisz na sztywno poniżej własny serwer coturn. */
+   Wpisany na stałe, żeby gracze nie musieli niczego konfigurować.
+   Jeśli kiedyś skończy się limit / zmienisz dostawcę, podmień tylko ten jeden adres. */
+const TURN_URL_DEFAULT="https://impostor-europa.metered.live/api/v1/turn/credentials?apiKey=6aupvNGC-zYE1hTZ7_cCyFBLyKwbYP8vjpxARME0iSF9MwmW";
 const TURN_FALLBACK=[];
 let TURN=[];
 let relayOnly=false;
@@ -556,7 +555,8 @@ function iceConfig(){
 
 function loadTurn(force){
   if(turnLoaded&&!force)return Promise.resolve();
-  const url=lsGet("impeu_turn").trim();
+  const custom=lsGet("impeu_turn").trim();
+  const url=custom||TURN_URL_DEFAULT;
   if(!/^https?:\/\//i.test(url)){
     turnLoaded=true;
     TURN=TURN_FALLBACK.slice();
